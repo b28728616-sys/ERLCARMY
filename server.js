@@ -275,26 +275,48 @@ function resolveRankDetails(slug = '') {
   };
 }
 
-function matchStaffRoles(roleIds, roleMap, fallbackRoleIds = []) {
+function inferRankSlugFromRoleName(roleName = '') {
+  const normalizedName = normalizeRankSlug(roleName);
+  if (STAFF_RANK_LOOKUP.has(normalizedName)) {
+    return normalizedName;
+  }
+  return null;
+}
+
+function getRoleNameMap(discordRoles = []) {
+  return new Map(discordRoles.map((role) => [role.id, role.name]));
+}
+
+function matchStaffRoles(roleIds, roleMap, fallbackRoleIds = [], discordRoles = []) {
   const roles = new Set(roleIds || []);
+  const roleNames = getRoleNameMap(discordRoles);
   const matches = roleMap.filter(({ roleId }) => roles.has(roleId)).map(({ slug }) => slug);
-  const legacyMatch = fallbackRoleIds.some((roleId) => roles.has(roleId));
-  if (matches.length > 0) {
-    return { isStaff: true, staffRoleSlug: matches[0], staffRoleSlugs: matches };
+  const inferredMatches = fallbackRoleIds
+    .filter((roleId) => roles.has(roleId))
+    .map((roleId) => inferRankSlugFromRoleName(roleNames.get(roleId)) || 'legacy-staff');
+  const allMatches = [...new Set([...matches, ...inferredMatches])];
+  if (allMatches.length > 0) {
+    return { isStaff: true, staffRoleSlug: allMatches[0], staffRoleSlugs: allMatches };
   }
   return {
-    isStaff: legacyMatch,
-    staffRoleSlug: legacyMatch ? 'legacy-staff' : null,
-    staffRoleSlugs: legacyMatch ? ['legacy-staff'] : [],
+    isStaff: false,
+    staffRoleSlug: null,
+    staffRoleSlugs: [],
   };
 }
 
-function getHighestRankFromRoleList(roleIds = [], roleMap = [], fallbackRoleIds = []) {
+function getHighestRankFromRoleList(roleIds = [], roleMap = [], fallbackRoleIds = [], discordRoles = []) {
   const roles = new Set(roleIds || []);
-  const matchingEntries = roleMap.filter(({ roleId }) => roles.has(roleId));
-  if (matchingEntries.length > 0) {
-    return matchingEntries
-      .map(({ slug }) => resolveRankDetails(slug))
+  const roleNames = getRoleNameMap(discordRoles);
+  const matchingSlugs = [
+    ...roleMap.filter(({ roleId }) => roles.has(roleId)).map(({ slug }) => slug),
+    ...fallbackRoleIds
+      .filter((roleId) => roles.has(roleId))
+      .map((roleId) => inferRankSlugFromRoleName(roleNames.get(roleId))),
+  ].filter(Boolean);
+  if (matchingSlugs.length > 0) {
+    return matchingSlugs
+      .map((slug) => resolveRankDetails(slug))
       .sort((a, b) => b.level - a.level)[0] || null;
   }
 
@@ -452,10 +474,22 @@ function createApp() {
                 ).catch(() => null);
               });
 
+              const guildRolesResponse = process.env.DISCORD_BOT_TOKEN
+                ? await axios.get(`https://discord.com/api/guilds/${guildId}/roles`, {
+                    headers: {
+                      Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+                    },
+                  }).catch(() => ({ data: [] }))
+                : { data: [] };
+              const discordRoles = Array.isArray(guildRolesResponse.data)
+                ? guildRolesResponse.data
+                : [];
+
               const roleAccess = matchStaffRoles(
                 memberResponse?.data?.roles || [],
                 staffRoleMap,
-                legacyStaffRoleIds
+                legacyStaffRoleIds,
+                discordRoles
               );
 
               isStaff = roleAccess.isStaff;
@@ -466,7 +500,8 @@ function createApp() {
                 const highestRank = getHighestRankFromRoleList(
                   memberResponse?.data?.roles || [],
                   staffRoleMap,
-                  legacyStaffRoleIds
+                  legacyStaffRoleIds,
+                  discordRoles
                 );
 
                 const uniqueRoleSummary = await getGuildRoleMembershipSummary(
