@@ -253,8 +253,12 @@ function parseStaffRoleMap(value = '') {
 }
 
 function getDiscordFailureReason(error) {
-  const status = error?.response?.status;
-  const discordCode = error?.response?.data?.code;
+  const status = error?.response?.status || error?.oauthError?.statusCode;
+  const errorMessage = String(error?.message || '').toLowerCase();
+  if (errorMessage.includes('access token')) {
+    return 'discord-token-exchange';
+  }
+  const discordCode = error?.response?.data?.code || error?.oauthError?.code;
   if (status) {
     return `discord-callback-${status}${discordCode ? `-${discordCode}` : ''}`;
   }
