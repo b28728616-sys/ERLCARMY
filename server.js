@@ -432,7 +432,7 @@ function createApp() {
           clientID: process.env.DISCORD_CLIENT_ID,
           clientSecret: process.env.DISCORD_CLIENT_SECRET,
           callbackURL: `${baseUrl}/auth/discord/callback`,
-          scope: ['identify', 'guilds', 'guilds.members.read'],
+          scope: ['identify'],
         },
         async (accessToken, refreshToken, profile, done) => {
           try {
@@ -442,37 +442,17 @@ function createApp() {
             let staffRoleSlugs = [];
             let accessDetails = { ...DEFAULT_STAFF_ACCESS };
 
-            const guildsResponse = await axios.get('https://discord.com/api/users/@me/guilds', {
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-              },
-            });
-
-            const guild = guildsResponse.data.find((entry) => entry.id === guildId);
-            guildMembership = Boolean(guild);
-
-            if (guildMembership && guildId) {
+            if (guildId && process.env.DISCORD_BOT_TOKEN) {
               const memberResponse = await axios.get(
-                `https://discord.com/api/users/@me/guilds/${guildId}/member`,
+                `https://discord.com/api/guilds/${guildId}/members/${profile.id}`,
                 {
                   headers: {
-                    Authorization: `Bearer ${accessToken}`,
+                    Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
                   },
                 }
-              ).catch(async () => {
-                if (!process.env.DISCORD_BOT_TOKEN) {
-                  return null;
-                }
+              ).catch(() => null);
 
-                return axios.get(
-                  `https://discord.com/api/guilds/${guildId}/members/${profile.id}`,
-                  {
-                    headers: {
-                      Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
-                    },
-                  }
-                ).catch(() => null);
-              });
+              guildMembership = Boolean(memberResponse?.data);
 
               const guildRolesResponse = process.env.DISCORD_BOT_TOKEN
                 ? await axios.get(`https://discord.com/api/guilds/${guildId}/roles`, {
