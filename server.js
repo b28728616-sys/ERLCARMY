@@ -278,11 +278,15 @@ function resolveRankDetails(slug = '') {
 function matchStaffRoles(roleIds, roleMap, fallbackRoleIds = []) {
   const roles = new Set(roleIds || []);
   const matches = roleMap.filter(({ roleId }) => roles.has(roleId)).map(({ slug }) => slug);
-  if (roleMap.length > 0) {
-    return { isStaff: matches.length > 0, staffRoleSlug: matches[0] || null, staffRoleSlugs: matches };
+  const legacyMatch = fallbackRoleIds.some((roleId) => roles.has(roleId));
+  if (matches.length > 0) {
+    return { isStaff: true, staffRoleSlug: matches[0], staffRoleSlugs: matches };
   }
-  const isStaff = fallbackRoleIds.some((roleId) => roles.has(roleId));
-  return { isStaff, staffRoleSlug: null, staffRoleSlugs: [] };
+  return {
+    isStaff: legacyMatch,
+    staffRoleSlug: legacyMatch ? 'legacy-staff' : null,
+    staffRoleSlugs: legacyMatch ? ['legacy-staff'] : [],
+  };
 }
 
 function getHighestRankFromRoleList(roleIds = [], roleMap = [], fallbackRoleIds = []) {
