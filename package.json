@@ -1,0 +1,20 @@
+{
+  "name": "erlcarmy",
+  "version": "1.0.0",
+  "description": "ERLCARMY public website with Discord-authenticated staff access",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "passport": "^0.7.0",
+    "passport-discord": "^0.1.4"
+  }
+}

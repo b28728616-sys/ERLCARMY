@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: erlcarmy
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: BASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: DISCORD_CLIENT_ID
+        sync: false
+      - key: DISCORD_CLIENT_SECRET
+        sync: false
+      - key: DISCORD_GUILD_ID
+        value: 1507211280765943909
+      - key: DISCORD_STAFF_ROLE_IDS
+        sync: false
+      - key: DISCORD_BOT_TOKEN
+        sync: false
