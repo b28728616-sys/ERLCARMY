@@ -1,5 +1,528 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>ERLCARMY | Staff Command</title><link rel="stylesheet" href="style.css"></head>
-<body><header class="topbar"><div class="container nav"><a class="brand" href="/">ERLCARMY <small>Command & Moderation</small></a><nav><a href="/">Public Site</a><a href="/logout">Sign out</a></nav></div></header><main class="container"><section class="hero"><p class="eyebrow">Restricted Access</p><h1>ERLC Staff Command Portal</h1><p id="message">Checking your staff session...</p><a id="login" class="button" href="/auth/discord?redirect=/staff">Sign in with Discord</a></section><section id="portal" class="section hidden"><h2>Staff Manual</h2><div class="cards"><article><h3>President</h3><p>Final authority on executive policy, staffing, and strategic direction.</p></article><article><h3>Command Staff</h3><p>Translates executive policy into accountable operational leadership.</p></article><article><h3>Moderation</h3><p>Applies documented, consistent enforcement without favoritism or escalation.</p></article></div></section></main><script>
-fetch('/api/session',{credentials:'same-origin'}).then(r=>r.json()).then(data=>{if(data.authenticated&&data.user&&data.user.isStaff){document.getElementById('portal').classList.remove('hidden');document.getElementById('login').classList.add('hidden');document.getElementById('message').textContent='Verified staff: '+(data.user.username||'Staff member');}else{document.getElementById('message').textContent='Discord staff verification is required.';}}).catch(()=>{document.getElementById('message').textContent='Verification service unavailable.';});
-</script></body></html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ERLCARMY | Staff Command</title>
+    <meta
+      name="description"
+      content="ERLCARMY staff command and moderation handbook for authorized command personnel."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="container nav">
+        <div class="brand-wrap">
+          <div class="brand-mark">E</div>
+          <div>
+            <div class="brand-name">ERLCARMY</div>
+            <div class="brand-sub">Command & Moderation</div>
+          </div>
+        </div>
+        <nav class="nav-links" aria-label="Staff navigation">
+          <a href="index.html">Public Site</a>
+          <a href="#command">President / Command / Moderation</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section id="command" class="section staff-gate">
+        <div class="container">
+          <div class="section-header">
+            <p class="eyebrow">Restricted Access</p>
+            <h2>ERLC Staff Command Portal</h2>
+          </div>
+
+          <div class="staff-access-card">
+            <div class="staff-access-top">
+              <div>
+                <p class="staff-label">Authorized Personnel</p>
+                <h3>Command and Handbook Access</h3>
+              </div>
+              <span class="status-pill">Staff Only</span>
+            </div>
+
+            <p class="staff-intro">
+              This portal is reserved for ERLC command staff and moderators. It contains the official chain of command, Discord-to-role transfer structure, and staff doctrine.
+            </p>
+
+            <div class="staff-passcode-box" aria-labelledby="staffAccessTitle">
+              <h4 id="staffAccessTitle">Verify with Discord</h4>
+              <p id="staffMessage" class="staff-message" role="status" aria-live="polite">
+                Checking your staff session...
+              </p>
+              <div class="staff-input-row">
+                <a id="staffAccessBtn" class="btn btn-primary" href="/auth/discord?redirect=/staff" aria-label="Sign in with Discord to access the staff command portal">
+                  <span aria-hidden="true">◈</span> Sign in with Discord
+                </a>
+                <a id="staffLogoutBtn" class="btn btn-secondary hidden" href="/logout">Sign out</a>
+              </div>
+              <p id="staffIdentity" class="staff-message"></p>
+            </div>
+          </div>
+
+          <div id="staffPortal" class="staff-portal hidden">
+            <div class="staff-layout">
+              <aside class="staff-sidebar">
+                <div class="sidebar-block">
+                  <p class="sidebar-label">Command</p>
+                  <ul>
+                    <li><a href="#president">President</a></li>
+                    <li><a href="#moderation">Moderation</a></li>
+                    <li><a href="#command-staff">Command Staff</a></li>
+                    <li><a href="#rank-chart">Rank Chart</a></li>
+                  </ul>
+                </div>
+
+                <div class="sidebar-block">
+                  <p class="sidebar-label">Authority</p>
+                  <ul>
+                    <li>Executive Leadership</li>
+                    <li>Staff Discipline</li>
+                    <li>Operational Review</li>
+                    <li>Discord Command</li>
+                  </ul>
+                </div>
+              </aside>
+
+              <div class="staff-content">
+                <div class="staff-portal-header">
+                  <div>
+                    <p class="eyebrow">ERLC Command</p>
+                    <h3>Executive Dashboard & Staff Manual</h3>
+                  </div>
+                  <span class="status-pill success">Authorized</span>
+                </div>
+
+                <div class="dashboard-strip">
+                  <article class="dash-card">
+                    <p class="dash-label">Executive Authority</p>
+                    <h4>President</h4>
+                    <span>Final command authority</span>
+                  </article>
+                  <article class="dash-card">
+                    <p class="dash-label">Command Structure</p>
+                    <h4>Staff Integrity</h4>
+                    <span>Operational continuity</span>
+                  </article>
+                  <article class="dash-card">
+                    <p class="dash-label">Moderation</p>
+                    <h4>Rule Enforcement</h4>
+                    <span>Fair and consistent</span>
+                  </article>
+                  <article class="dash-card">
+                    <p class="dash-label">Operational Readiness</p>
+                    <h4>Mission Control</h4>
+                    <span>Prepared for action</span>
+                  </article>
+                </div>
+
+                <section id="roleDashboard" class="content-panel role-dashboard">
+                  <div class="staff-portal-header">
+                    <div>
+                      <p class="eyebrow">Access Matrix</p>
+                      <h3 id="roleDashboardTitle">Command Access Overview</h3>
+                    </div>
+                    <span id="roleBadge" class="status-pill">Staff</span>
+                  </div>
+                  <div id="roleDashboardGrid" class="dashboard-strip"></div>
+                </section>
+
+                <section class="manual-intro content-panel">
+                  <p class="eyebrow">Chapter I</p>
+                  <h4>ERLC Staff Manual Overview</h4>
+                  <p>
+                    This manual establishes the authority, discipline, and expectations for ERLC command staff and moderation personnel. The organization must remain structured, realistic, and loyal to the chain of command at every level.
+                  </p>
+                  <div class="annotation-block">
+                    <strong>Annotation:</strong> Command authority is not personal power. It is a trust granted to maintain order, fairness, and military realism.
+                  </div>
+                </section>
+
+                <section id="president" class="content-panel manual-section">
+                  <p class="eyebrow">Chapter II</p>
+                  <h4>President</h4>
+                  <p>
+                    The President is the highest executive authority within ERLC. The President sets strategic direction, oversees command legitimacy, and acts as the final authority on major internal disputes, executive appointments, and leadership decisions.
+                  </p>
+                  <ul>
+                    <li>Final authority on executive policy and staffing matters</li>
+                    <li>Maintains command stability and organizational continuity</li>
+                    <li>Approves major leadership actions and strategic direction</li>
+                    <li>Coordinates with staff to preserve realism and order</li>
+                  </ul>
+                  <div class="annotation-block">
+                    <strong>Annotation:</strong> presidential presence must remain calm, decisive, and above internal conflict when leadership decisions are made.
+                  </div>
+                </section>
+
+                <section id="moderation" class="content-panel manual-section">
+                  <p class="eyebrow">Chapter III</p>
+                  <h4>Moderation</h4>
+                  <p>
+                    Moderators are the enforcement backbone of the server. They maintain fairness, stability, and compliance with operational standards while preserving professionalism in all interactions.
+                  </p>
+                  <ul>
+                    <li>Review incidents and enforce proper staff procedure</li>
+                    <li>Apply consistent moderation standards across the server</li>
+                    <li>Maintain logs, evidence, and disciplinary continuity</li>
+                    <li>Coordinate with command staff for serious or escalated cases</li>
+                  </ul>
+                  <div class="annotation-block">
+                    <strong>Annotation:</strong> moderation must be factual, documented, and free from favoritism or emotional escalation.
+                  </div>
+                </section>
+
+                <section id="command-staff" class="content-panel manual-section">
+                  <p class="eyebrow">Chapter IV</p>
+                  <h4>Command Staff</h4>
+                  <p>
+                    Command staff manages unit leadership, departmental discipline, and operational execution. They translate executive policy into practical command actions and maintain realistic military structure across all departments.
+                  </p>
+                  <ul>
+                    <li>Chief of Staff coordinates executive continuity and scheduler oversight</li>
+                    <li>Executive Council advises on policy and strategic command review</li>
+                    <li>Department Commanders oversee department discipline and operations</li>
+                    <li>Senior Moderators support enforcement and command review</li>
+                  </ul>
+                  <div class="annotation-block">
+                    <strong>Annotation:</strong> command staff exists to maintain doctrine, accountability, and real operational coordination across the entire ERLC structure.
+                  </div>
+                </section>
+
+                <section id="rank-chart" class="content-panel rank-panel manual-section">
+                  <p class="eyebrow">Chapter V</p>
+                  <h4>Rank Hierarchy Chart</h4>
+                  <div class="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Command Level</th>
+                          <th>Role</th>
+                          <th>Function</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>1</td>
+                          <td>Founder</td>
+                          <td>Ultimate authority and final strategic leadership</td>
+                        </tr>
+                        <tr>
+                          <td>2</td>
+                          <td>Director</td>
+                          <td>Operational oversight and executive management</td>
+                        </tr>
+                        <tr>
+                          <td>3</td>
+                          <td>Executive Director</td>
+                          <td>High-level command coordination and policy direction</td>
+                        </tr>
+                        <tr>
+                          <td>4</td>
+                          <td>Chief of Staff</td>
+                          <td>Executive continuity, internal structure, and command flow</td>
+                        </tr>
+                        <tr>
+                          <td>5</td>
+                          <td>Head Administrator</td>
+                          <td>Administration control and server-wide leadership</td>
+                        </tr>
+                        <tr>
+                          <td>6</td>
+                          <td>Administrator</td>
+                          <td>Server governance, rules enforcement, and operational oversight</td>
+                        </tr>
+                        <tr>
+                          <td>7</td>
+                          <td>Junior Administrator</td>
+                          <td>Supervised administration and enforcement support</td>
+                        </tr>
+                        <tr>
+                          <td>8</td>
+                          <td>Senior Moderator</td>
+                          <td>Advanced moderation review and disciplinary action</td>
+                        </tr>
+                        <tr>
+                          <td>9</td>
+                          <td>Moderator</td>
+                          <td>Routine enforcement and player conduct management</td>
+                        </tr>
+                        <tr>
+                          <td>10</td>
+                          <td>Junior Moderator</td>
+                          <td>Entry-level moderation duties under supervision</td>
+                        </tr>
+                        <tr>
+                          <td>11</td>
+                          <td>Trial Moderator</td>
+                          <td>Evaluated moderation training and probationary enforcement</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+
+                <div class="staff-grid inward-grid">
+                  <article class="staff-panel">
+                    <h4>Discord Role Transfer</h4>
+                    <ul>
+                      <li><strong>Founder</strong> → Ultimate authority and strategic leadership</li>
+                      <li><strong>Director</strong> → Executive operations and oversight</li>
+                      <li><strong>Executive Director</strong> → High-level command direction</li>
+                      <li><strong>Chief of Staff</strong> → Staff continuity and internal coordination</li>
+                      <li><strong>Head Administrator</strong> → Senior administration and server control</li>
+                      <li><strong>Administrator</strong> → Governance and enforcement leadership</li>
+                      <li><strong>Junior Administrator</strong> → Assisted administration and review</li>
+                      <li><strong>Senior Moderator</strong> → Advanced disciplinary authority</li>
+                      <li><strong>Moderator</strong> → Standard moderation and incident control</li>
+                      <li><strong>Junior Moderator</strong> → Early moderation support</li>
+                      <li><strong>Trial Moderator</strong> → Probationary moderation training</li>
+                    </ul>
+                  </article>
+
+                  <article class="staff-panel">
+                    <h4>Staff Handbook Summary</h4>
+                    <ul>
+                      <li>Mission and command doctrine</li>
+                      <li>Executive authority and presidential roleplay</li>
+                      <li>Discord chain of command operations</li>
+                      <li>Moderation standards and discipline</li>
+                      <li>House raid and tactical operations policy</li>
+                      <li>Mass deployment and convoy command structure</li>
+                      <li>Nuclear transport security and accountability</li>
+                    </ul>
+                  </article>
+                </div>
+
+                <div class="handbook-box">
+                  <h4>ERLC Staff Manual Final Directive</h4>
+                  <p>
+                    ERLC staff must uphold military discipline, executive leadership, and procedural fairness. All command actions must remain within the approved chain of command, while presidential authority remains the final authority in executive matters. Moderators are responsible for enforcing standards without favoritism, abuse, or emotional escalation.
+                  </p>
+                  <p>
+                    Special operations, nuclear transport, house raids, and mass deployment must follow strict planning, command approval, and accountability standards. Discord is the official communication backbone of command, and all major staff actions must remain transparent, documented, and professional.
+                  </p>
+                  <div class="annotation-block">
+                    <strong>Final Annotation:</strong> the strength of ERLC lies in disciplined leadership, not in personal influence or uncontrolled authority.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer-inner">
+        <div>
+          <div class="brand-name footer-brand">ERLCARMY</div>
+          <p>Discipline. Order. Fairness.</p>
+        </div>
+        <p>© 2026 ERLCARMY Command Staff</p>
+      </div>
+    </footer>
+
+    <script>
+      const staffAccessBtn = document.getElementById('staffAccessBtn');
+      const staffLogoutBtn = document.getElementById('staffLogoutBtn');
+      const staffPortal = document.getElementById('staffPortal');
+      const staffMessage = document.getElementById('staffMessage');
+      const staffIdentity = document.getElementById('staffIdentity');
+
+      function showSignedOut(message) {
+        staffPortal.classList.add('hidden');
+        staffAccessBtn.classList.remove('hidden');
+        staffLogoutBtn.classList.add('hidden');
+        staffIdentity.textContent = '';
+        staffMessage.textContent = message;
+        staffMessage.classList.remove('success');
+      }
+
+      const rankAccessMap = {
+        founder: 'Full system access. Founder controls the final authority chain.',
+        'deputy-director': 'Deputy Director-level access. High command oversight and executive enforcement.',
+        director: 'Director access. Administrative command and leadership oversight.',
+        'executive-director': 'Executive Director access. Strategic action approval and leadership coordination.',
+        'chief-of-staff': 'Chief of Staff access. Staff continuity and internal command control.',
+        'head-administrator': 'Head Administrator access. Senior operations and administrative management.',
+        administrator: 'Administrator access. Governance and enforcement support.',
+        'junior-administrator': 'Junior Administrator access. Assisted administration and review.',
+        'senior-moderator': 'Senior Moderator access. High-level moderation authority and disciplinary review.',
+        moderator: 'Moderator access. Server enforcement and incident handling.',
+        'junior-moderator': 'Junior Moderator access. Moderation support under supervision.',
+        'trial-moderator': 'Trial Moderator access. Probationary moderation access and training.',
+      };
+
+      const roleAccessPanels = {
+        founder: {
+          badge: 'Founder',
+          title: 'Founder Control Panel',
+          cards: [
+            ['Final Authority', 'Final command decision-making and strategic leadership authority.'],
+            ['Rank Control', 'Owns the rank chain, staffing approvals, and executive structure protection.'],
+            ['System Oversight', 'Full visibility into command operations, staffing, and policy enforcement.'],
+          ],
+        },
+        'deputy-director': {
+          badge: 'Deputy Director',
+          title: 'Deputy Director Command Panel',
+          cards: [
+            ['Executive Oversight', 'Leads command continuity during executive absences and escalations.'],
+            ['Staff Approval', 'Approves operational action plans and ensures leadership succession integrity.'],
+            ['Enforcement Authority', 'Supports high-level discipline, policy review, and command-level intervention.'],
+          ],
+        },
+        director: {
+          badge: 'Director',
+          title: 'Director Access Panel',
+          cards: [
+            ['Leadership Oversight', 'Coordinates department direction and command-wide policy execution.'],
+            ['Administrative Review', 'Reviews major command decisions and maintains structural accountability.'],
+            ['Action Authority', 'Approves operational changes and internal leadership continuity.'],
+          ],
+        },
+        'executive-director': {
+          badge: 'Executive Director',
+          title: 'Executive Director Panel',
+          cards: [
+            ['Strategic Direction', 'Maintains long-term command strategy and leadership focus.'],
+            ['Operational Review', 'Evaluates performance, leadership changes, and internal policy direction.'],
+            ['Approval Chain', 'Approves higher-level directives and command coordination tasks.'],
+          ],
+        },
+        'chief-of-staff': {
+          badge: 'Chief of Staff',
+          title: 'Chief of Staff Operations Panel',
+          cards: [
+            ['Command Coordination', 'Aligns internal leadership scheduling and command continuity.'],
+            ['Staff Integrity', 'Tracks structure, reporting flow, and executive support operations.'],
+            ['Internal Review', 'Maintains procedural order and continuity across command teams.'],
+          ],
+        },
+        'head-administrator': {
+          badge: 'Head Administrator',
+          title: 'Head Administrator Panel',
+          cards: [
+            ['Admin Control', 'Oversees core server administration and procedural enforcement.'],
+            ['Leadership Support', 'Coordinates administrative review and corrective action.'],
+            ['Issue Escalation', 'Escalates major problems to the command hierarchy when needed.'],
+          ],
+        },
+        administrator: {
+          badge: 'Administrator',
+          title: 'Administrator Access Panel',
+          cards: [
+            ['Governance', 'Maintains rule enforcement and operational oversight for the command structure.'],
+            ['Review', 'Evaluates disputes and ensures policy compliance across staff actions.'],
+            ['Support', 'Provides command-level support and administrative follow-through.'],
+          ],
+        },
+        'junior-administrator': {
+          badge: 'Junior Administrator',
+          title: 'Junior Administrator Panel',
+          cards: [
+            ['Review Support', 'Helps with issue review and administrative follow-up.'],
+            ['Monitoring', 'Assists with staff oversight under senior supervision.'],
+            ['Command Assistance', 'Supports the department with routine enforcement and documentation.'],
+          ],
+        },
+        'senior-moderator': {
+          badge: 'Senior Moderator',
+          title: 'Senior Moderator Command Panel',
+          cards: [
+            ['Moderation Authority', 'Handles escalated staff disputes and disciplinary decisions.'],
+            ['Compliance Review', 'Enforces server policy and high-priority incident review.'],
+            ['Staff Support', 'Guides lower moderation staff and documents enforcement actions.'],
+          ],
+        },
+        moderator: {
+          badge: 'Moderator',
+          title: 'Moderator Access Panel',
+          cards: [
+            ['Incident Handling', 'Manages moderation action for players and rule issues.'],
+            ['Discipline', 'Applies consistent enforcement according to staff policy.'],
+            ['Reporting', 'Maintains documentation and issue escalation for review.'],
+          ],
+        },
+        'junior-moderator': {
+          badge: 'Junior Moderator',
+          title: 'Junior Moderator Panel',
+          cards: [
+            ['Support Moderation', 'Helps monitor behavior and assist with routine moderation tasks.'],
+            ['Issue Tracking', 'Logs reports and provides escalation support.'],
+            ['Training', 'Builds moderation experience under supervision.'],
+          ],
+        },
+        'trial-moderator': {
+          badge: 'Trial Moderator',
+          title: 'Trial Moderator Panel',
+          cards: [
+            ['Probationary Access', 'Uses limited moderation privileges while under review.'],
+            ['Training Duties', 'Supports supervised moderation and issue documentation.'],
+            ['Progress Review', 'Works toward full moderator authority through evaluation.'],
+          ],
+        },
+      };
+
+      function renderRoleDashboard(roleKey) {
+        const panel = roleAccessPanels[roleKey] || roleAccessPanels.moderator;
+        const grid = document.getElementById('roleDashboardGrid');
+        const title = document.getElementById('roleDashboardTitle');
+        const badge = document.getElementById('roleBadge');
+
+        title.textContent = panel.title;
+        badge.textContent = panel.badge;
+        grid.innerHTML = panel.cards.map(([heading, detail]) => `
+          <article class="dash-card">
+            <p class="dash-label">Access</p>
+            <h4>${heading}</h4>
+            <span>${detail}</span>
+          </article>
+        `).join('');
+      }
+
+      async function checkSession() {
+        try {
+          const res = await fetch('/api/session', { credentials: 'same-origin' });
+          if (!res.ok) throw new Error('Network response not ok');
+          const data = await res.json();
+
+          if (data.authenticated && data.user && data.user.isStaff) {
+            staffPortal.classList.remove('hidden');
+            staffAccessBtn.classList.add('hidden');
+            staffLogoutBtn.classList.remove('hidden');
+            staffMessage.textContent = 'Discord staff verification confirmed.';
+            staffMessage.classList.add('success');
+
+            const roleKey = data.user.staffRoleSlug || 'moderator';
+            const roleLabel = data.user.staffRoleSlug
+              ? `Verified role: ${data.user.staffRoleSlug}`
+              : 'Verified staff member';
+            const accessSummary = rankAccessMap[roleKey] || 'Staff-level access granted by the command hierarchy.';
+            staffIdentity.textContent = `${data.user.username || 'Staff member'} · ${roleLabel} · ${accessSummary}`;
+            renderRoleDashboard(roleKey);
+            window.location.hash = '#command';
+            return;
+          }
+
+          showSignedOut('Discord verification is required to access the staff command portal.');
+        } catch (err) {
+          console.error('Session check failed', err);
+          showSignedOut('Verification service is unavailable. Please try again shortly.');
+        }
+      }
+
+      window.addEventListener('DOMContentLoaded', checkSession);
+    </script>
+  </body>
+</html>
