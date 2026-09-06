@@ -9,7 +9,13 @@ const DiscordStrategy = require('passport-discord').Strategy;
 dotenv.config();
 
 const port = Number(process.env.PORT) || 3000;
-const baseUrl = process.env.BASE_URL || `http://localhost:${port}`;
+function normalizeBaseUrl(value) {
+  const fallback = `http://localhost:${port}`;
+  const configuredUrl = String(value || fallback).trim().replace(/\/+$/, '');
+  return configuredUrl.replace(/\/auth\/discord\/callback(?:\/auth\/discord\/callback)?$/, '');
+}
+
+const baseUrl = normalizeBaseUrl(process.env.BASE_URL);
 const guildId = process.env.DISCORD_GUILD_ID;
 const staffRoleMap = parseStaffRoleMap(process.env.DISCORD_STAFF_ROLE_MAP);
 const legacyStaffRoleIds = parseStaffRoleIds(process.env.DISCORD_STAFF_ROLE_IDS);
