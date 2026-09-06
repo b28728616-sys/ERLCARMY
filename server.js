@@ -416,15 +416,28 @@ function createApp() {
             const guild = guildsResponse.data.find((entry) => entry.id === guildId);
             guildMembership = Boolean(guild);
 
-            if (guildMembership && guildId && process.env.DISCORD_BOT_TOKEN) {
+            if (guildMembership && guildId) {
               const memberResponse = await axios.get(
-                `https://discord.com/api/guilds/${guildId}/members/${profile.id}`,
+                `https://discord.com/api/users/@me/guilds/${guildId}/member`,
                 {
                   headers: {
-                    Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+                    Authorization: `Bearer ${accessToken}`,
                   },
                 }
-              ).catch(() => null);
+              ).catch(async () => {
+                if (!process.env.DISCORD_BOT_TOKEN) {
+                  return null;
+                }
+
+                return axios.get(
+                  `https://discord.com/api/guilds/${guildId}/members/${profile.id}`,
+                  {
+                    headers: {
+                      Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+                    },
+                  }
+                ).catch(() => null);
+              });
 
               const roleAccess = matchStaffRoles(
                 memberResponse?.data?.roles || [],
@@ -546,9 +559,24 @@ function createApp() {
   });
 
   app.get('/auth/discord/callback', (req, res, next) => {
-    passport.authenticate('discord', {
-      failureRedirect: '/?auth=failed',
-      successRedirect: req.session.redirectTo || '/staff',
+    passport.authenticate('discord', (error, user) => {
+      if (error) {
+        console.error('Discord callback failed:', error.response?.data || error.message);
+        return res.redirect('/staff?auth=failed&reason=discord-callback');
+      }
+
+      if (!user) {
+        return res.redirect('/staff?auth=failed&reason=discord-access');
+      }
+
+      return req.logIn(user, (loginError) => {
+        if (loginError) {
+          console.error('Discord session failed:', loginError.message);
+          return res.redirect('/staff?auth=failed&reason=session');
+        }
+
+        return res.redirect(req.session.redirectTo || '/staff');
+      });
     })(req, res, next);
   });
 
