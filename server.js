@@ -252,6 +252,15 @@ function parseStaffRoleMap(value = '') {
     .filter(Boolean);
 }
 
+function getDiscordFailureReason(error) {
+  const status = error?.response?.status;
+  const discordCode = error?.response?.data?.code;
+  if (status) {
+    return `discord-callback-${status}${discordCode ? `-${discordCode}` : ''}`;
+  }
+  return 'discord-callback';
+}
+
 function resolveRankDetails(slug = '') {
   const normalized = normalizeRankSlug(slug);
   return STAFF_RANK_LOOKUP.get(normalized) || {
@@ -562,7 +571,7 @@ function createApp() {
     passport.authenticate('discord', (error, user) => {
       if (error) {
         console.error('Discord callback failed:', error.response?.data || error.message);
-        return res.redirect('/staff?auth=failed&reason=discord-callback');
+        return res.redirect(`/staff?auth=failed&reason=${getDiscordFailureReason(error)}`);
       }
 
       if (!user) {
