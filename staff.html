@@ -492,6 +492,17 @@
       }
 
       async function checkSession() {
+        const authParams = new URLSearchParams(window.location.search);
+        const authReason = authParams.get('reason');
+        const retryAfter = Number(authParams.get('retryAfter')) || 30;
+        const authFailureMessage = authReason === 'discord-rate-limited'
+          ? `Discord is temporarily rate-limiting sign-in. Please wait ${retryAfter} seconds, then try again.`
+          : authReason === 'discord-code-used'
+            ? 'This Discord authorization link has already been used. Start a new sign-in.'
+            : authReason === 'discord-timeout'
+              ? 'Discord took too long to respond. Please try signing in again.'
+              : null;
+
         try {
           const res = await fetch('/api/session', { credentials: 'same-origin' });
           if (!res.ok) throw new Error('Network response not ok');
@@ -515,7 +526,7 @@
             return;
           }
 
-          showSignedOut('Discord verification is required to access the staff command portal.');
+          showSignedOut(authFailureMessage || 'Discord verification is required to access the staff command portal.');
         } catch (err) {
           console.error('Session check failed', err);
           showSignedOut('Verification service is unavailable. Please try again shortly.');

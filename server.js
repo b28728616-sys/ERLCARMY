@@ -23,6 +23,7 @@ const discordCache = {
   roles: { value: [], expiresAt: 0 },
   uniqueHoldings: { value: {}, expiresAt: 0 },
 };
+const usedDiscordCallbackCodes = new Map();
 
 const isDiscordConfigured = Boolean(
   process.env.DISCORD_CLIENT_ID
@@ -290,6 +291,13 @@ function getDiscordErrorDetails(error) {
     || error?.response?.data
     || error?.message
     || 'unknown-discord-error';
+}
+
+function getDiscordRetryAfter(error) {
+  const retryAfter = error?.response?.data?.retry_after
+    || error?.response?.headers?.['retry-after'];
+  const seconds = Number(retryAfter);
+  return Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds) : 30;
 }
 
 function addDiscordOAuthTimeout(strategy, timeoutMs = 15000) {
@@ -699,6 +707,18 @@ function createApp() {
       return res.redirect('/staff?auth=failed&reason=discord-callback');
     }
 
+    const callbackCode = String(req.query.code);
+    const previousUse = usedDiscordCallbackCodes.get(callbackCode);
+    if (previousUse && previousUse > Date.now() - 10 * 60 * 1000) {
+      return res.redirect('/staff?auth=failed&reason=discord-code-used');
+    }
+    usedDiscordCallbackCodes.set(callbackCode, Date.now());
+    for (const [code, usedAt] of usedDiscordCallbackCodes) {
+      if (usedAt < Date.now() - 10 * 60 * 1000) {
+        usedDiscordCallbackCodes.delete(code);
+      }
+    }
+
     const callbackTimeout = setTimeout(() => {
       console.error('Discord callback timed out before authentication completed');
       if (!res.headersSent) {
@@ -717,7 +737,7 @@ function createApp() {
       client_id: process.env.DISCORD_CLIENT_ID,
       client_secret: process.env.DISCORD_CLIENT_SECRET,
       grant_type: 'authorization_code',
-      code: req.query.code,
+      code: callbackCode,
       redirect_uri: `${baseUrl}/auth/discord/callback`,
     }).toString(), {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -753,6 +773,10 @@ function createApp() {
       });
     }).catch((error) => {
       console.error('Discord token exchange failed:', getDiscordErrorDetails(error));
+      if (error?.response?.status === 429 || isDiscordRateLimitError(error)) {
+        const retryAfter = getDiscordRetryAfter(error);
+        return finish(`/staff?auth=failed&reason=discord-rate-limited&retryAfter=${retryAfter}`);
+      }
       finish(`/staff?auth=failed&reason=${getDiscordFailureReason(error)}`);
     });
   });
