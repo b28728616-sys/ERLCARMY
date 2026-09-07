@@ -754,7 +754,7 @@ function createApp() {
             if (guildId) {
               let memberError = null;
               let memberResponse = await axios.get(
-                `https://discord.com/api/guilds/${guildId}/members/${profile.id}`,
+                `https://discord.com/api/users/@me/guilds/${guildId}/member`,
                 {
                   headers: {
                     Authorization: `Bearer ${accessToken}`,
@@ -791,14 +791,23 @@ function createApp() {
 
               guildMembership = Boolean(memberResponse?.data);
 
-              const discordRoles = await getGuildRoles(guildId, process.env.DISCORD_BOT_TOKEN);
-
-              const roleAccess = matchStaffRoles(
+              let discordRoles = [];
+              let roleAccess = matchStaffRoles(
                 memberResponse?.data?.roles || [],
                 staffRoleMap,
                 legacyStaffRoleIds,
                 discordRoles
               );
+
+              if (!roleAccess.isStaff && legacyStaffRoleIds.length) {
+                discordRoles = await getGuildRoles(guildId, process.env.DISCORD_BOT_TOKEN);
+                roleAccess = matchStaffRoles(
+                  memberResponse?.data?.roles || [],
+                  staffRoleMap,
+                  legacyStaffRoleIds,
+                  discordRoles
+                );
+              }
 
               isStaff = roleAccess.isStaff;
               staffRoleSlug = roleAccess.staffRoleSlug;
@@ -812,23 +821,25 @@ function createApp() {
                   discordRoles
                 );
 
-                const uniqueRoleSummary = await getGuildRoleMembershipSummary(
-                  guildId,
-                  process.env.DISCORD_BOT_TOKEN,
-                  staffRoleMap
-                );
-
                 const rankDetails = highestRank || resolveRankDetails(staffRoleSlug);
                 accessDetails = { ...DEFAULT_STAFF_ACCESS, ...rankDetails.permissions };
 
-                if (getUniqueRankConflict(staffRoleSlug, uniqueRoleSummary)) {
-                  isStaff = false;
-                  staffRoleSlug = null;
-                  staffRoleSlugs = [];
-                  accessDetails = {
-                    ...DEFAULT_STAFF_ACCESS,
-                    accessName: 'Rank conflict detected',
-                  };
+                if (process.env.DISCORD_ENFORCE_UNIQUE_RANKS === 'true') {
+                  const uniqueRoleSummary = await getGuildRoleMembershipSummary(
+                    guildId,
+                    process.env.DISCORD_BOT_TOKEN,
+                    staffRoleMap
+                  );
+
+                  if (getUniqueRankConflict(staffRoleSlug, uniqueRoleSummary)) {
+                    isStaff = false;
+                    staffRoleSlug = null;
+                    staffRoleSlugs = [];
+                    accessDetails = {
+                      ...DEFAULT_STAFF_ACCESS,
+                      accessName: 'Rank conflict detected',
+                    };
+                  }
                 }
               }
             }
@@ -895,8 +906,8 @@ function createApp() {
   }
 
   function requireStaffApi(req, res, next) {
-    if (!req.isAuthenticated() || !req.user || !req.user.isStaff) {
-      return res.status(403).json({ error: 'Staff access required' });
+    if (!req.isAuthenticated() || !req.user?.isStaff) {
+      return res.status(401).json({ error: 'Staff authentication required.' });
     }
     next();
   }
