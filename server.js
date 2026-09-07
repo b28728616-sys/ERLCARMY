@@ -294,9 +294,9 @@ function getDiscordErrorDetails(error) {
 
 function addDiscordOAuthTimeout(strategy, timeoutMs = 15000) {
   const oauthClient = strategy._oauth2;
-  const executeRequest = oauthClient._executeRequest.bind(oauthClient);
+  const request = oauthClient._request.bind(oauthClient);
 
-  oauthClient._executeRequest = (httpLibrary, options, postBody, callback) => {
+  oauthClient._request = (method, url, headers, postBody, accessToken, callback) => {
     let settled = false;
     const timeout = setTimeout(() => {
       if (settled) {
@@ -308,7 +308,7 @@ function addDiscordOAuthTimeout(strategy, timeoutMs = 15000) {
       callback(error);
     }, timeoutMs);
 
-    executeRequest(httpLibrary, options, postBody, (error, result, response) => {
+    request(method, url, headers, postBody, accessToken, (error, result, response) => {
       if (settled) {
         return;
       }
