@@ -554,7 +554,7 @@ function createApp() {
                 return null;
               });
 
-              if (!memberResponse && process.env.DISCORD_BOT_TOKEN) {
+              if (!memberResponse && memberError?.response?.status !== 429 && process.env.DISCORD_BOT_TOKEN) {
                 memberResponse = await axios.get(
                   `https://discord.com/api/guilds/${guildId}/members/${profile.id}`,
                   {
@@ -579,14 +579,23 @@ function createApp() {
 
               guildMembership = Boolean(memberResponse?.data);
 
-              const discordRoles = await getGuildRoles(guildId, process.env.DISCORD_BOT_TOKEN);
-
-              const roleAccess = matchStaffRoles(
+              let discordRoles = [];
+              let roleAccess = matchStaffRoles(
                 memberResponse?.data?.roles || [],
                 staffRoleMap,
                 legacyStaffRoleIds,
                 discordRoles
               );
+
+              if (!roleAccess.isStaff && legacyStaffRoleIds.length) {
+                discordRoles = await getGuildRoles(guildId, process.env.DISCORD_BOT_TOKEN);
+                roleAccess = matchStaffRoles(
+                  memberResponse?.data?.roles || [],
+                  staffRoleMap,
+                  legacyStaffRoleIds,
+                  discordRoles
+                );
+              }
 
               isStaff = roleAccess.isStaff;
               staffRoleSlug = roleAccess.staffRoleSlug;
@@ -710,7 +719,7 @@ function createApp() {
       client_id: process.env.DISCORD_CLIENT_ID,
       redirect_uri: callbackUrl,
       response_type: 'token',
-      scope: 'identify',
+      scope: 'identify guilds.members.read',
       state,
     }).toString();
     res.redirect(authorizationUrl.toString());
