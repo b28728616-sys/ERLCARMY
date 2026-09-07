@@ -694,7 +694,19 @@ function createApp() {
   });
 
   app.get('/auth/discord/callback', (req, res, next) => {
+    let callbackTimedOut = false;
+    const callbackTimeout = setTimeout(() => {
+      callbackTimedOut = true;
+      console.error('Discord callback timed out before authentication completed');
+      res.redirect('/staff?auth=failed&reason=discord-timeout');
+    }, 20000);
+    res.on('finish', () => clearTimeout(callbackTimeout));
+
     const authenticateDiscord = (attempt = 0) => passport.authenticate('discord', (error, user) => {
+      if (callbackTimedOut) {
+        return;
+      }
+
       if (error) {
         console.error('Discord callback failed:', getDiscordErrorDetails(error));
         if (attempt === 0 && isDiscordRateLimitError(error)) {
