@@ -292,6 +292,33 @@ function getDiscordErrorDetails(error) {
     || 'unknown-discord-error';
 }
 
+function addDiscordOAuthTimeout(strategy, timeoutMs = 15000) {
+  const oauthClient = strategy._oauth2;
+  const executeRequest = oauthClient._executeRequest.bind(oauthClient);
+
+  oauthClient._executeRequest = (httpLibrary, options, postBody, callback) => {
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      const error = new Error('Discord OAuth request timed out');
+      error.code = 'DISCORD_OAUTH_TIMEOUT';
+      callback(error);
+    }, timeoutMs);
+
+    executeRequest(httpLibrary, options, postBody, (error, result, response) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timeout);
+      callback(error, result, response);
+    });
+  };
+}
+
 function resolveRankDetails(slug = '') {
   const normalized = normalizeRankSlug(slug);
   return STAFF_RANK_LOOKUP.get(normalized) || {
@@ -487,8 +514,7 @@ function createApp() {
   passport.deserializeUser((user, done) => done(null, user));
 
   if (isDiscordConfigured) {
-    passport.use(
-      new DiscordStrategy(
+    const discordStrategy = new DiscordStrategy(
         {
           clientID: process.env.DISCORD_CLIENT_ID,
           clientSecret: process.env.DISCORD_CLIENT_SECRET,
@@ -605,8 +631,9 @@ function createApp() {
             return done(error, null);
           }
         }
-      )
-    );
+      );
+    addDiscordOAuthTimeout(discordStrategy);
+    passport.use(discordStrategy);
   }
 
   function requireStaffAccess(req, res, next) {
