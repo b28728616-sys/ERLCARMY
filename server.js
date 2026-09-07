@@ -2,14 +2,15 @@ const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
 const axios = require('axios');
-const path = require('path');
 const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 const dotenv = require('dotenv');
 const DiscordStrategy = require('passport-discord').Strategy;
 
 dotenv.config();
 
-const OPERATIONS_FILE = path.join(__dirname, 'operations.json');
+const OPERATIONS_FILE = path.join(__dirname, 'data', 'operations.json');
 const ERLC_API_BASE = 'https://api.erlc.gg';
 const ERLC_SERVER_KEY = process.env.ERLC_SERVER_KEY;
 
@@ -24,12 +25,18 @@ const baseUrl = normalizeBaseUrl(process.env.BASE_URL);
 const guildId = process.env.DISCORD_GUILD_ID;
 const staffRoleMap = parseStaffRoleMap(process.env.DISCORD_STAFF_ROLE_MAP);
 const legacyStaffRoleIds = parseStaffRoleIds(process.env.DISCORD_STAFF_ROLE_IDS);
+const discordCache = {
+  roles: { value: [], expiresAt: 0 },
+  uniqueHoldings: { value: {}, expiresAt: 0 },
+};
+const usedDiscordCallbackCodes = new Map();
+let discordTokenCooldownUntil = 0;
+let discordRateLimitStreak = 0;
 
 const isDiscordConfigured = Boolean(
   process.env.DISCORD_CLIENT_ID
   && process.env.DISCORD_CLIENT_SECRET
   && process.env.DISCORD_GUILD_ID
-  && process.env.DISCORD_BOT_TOKEN
   && baseUrl
 );
 
@@ -406,6 +413,10 @@ async function getGuildRoleMembershipSummary(guildIdValue, botToken, roleMapValu
     }
   }
 
+  discordCache.uniqueHoldings = {
+    value: uniqueHoldings,
+    expiresAt: Date.now() + 5 * 60 * 1000,
+  };
   return uniqueHoldings;
 }
 
@@ -445,6 +456,7 @@ function saveOperations(ops) {
     infractions: ops.infractions || [],
     gameLogs: ops.gameLogs || [],
   };
+  fs.mkdirSync(path.dirname(OPERATIONS_FILE), { recursive: true });
   fs.writeFileSync(OPERATIONS_FILE, JSON.stringify(data, null, 2));
 }
 
@@ -629,12 +641,75 @@ async function runErlcCommand(command) {
   });
 }
 
+function isDiscordRateLimitError(error) {
+  const errorMessage = String(error?.message || '').toLowerCase();
+  const errorDetails = JSON.stringify(getDiscordErrorDetails(error)).toLowerCase();
+  return errorMessage.includes('1015')
+    || errorDetails.includes('1015')
+    || errorMessage.includes('rate limit');
+}
+
+function getDiscordRetryAfter(error) {
+  const retryAfter = error?.response?.data?.retry_after
+    || error?.response?.headers?.['retry-after'];
+  const seconds = Number(retryAfter);
+  return Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds) : 30;
+}
+
+async function getGuildRoles(guildIdValue, botToken) {
+  if (!guildIdValue || !botToken) {
+    return [];
+  }
+
+  if (discordCache.roles.expiresAt > Date.now()) {
+    return discordCache.roles.value;
+  }
+
+  const response = await axios.get(`https://discord.com/api/guilds/${guildIdValue}/roles`, {
+    headers: { Authorization: `Bot ${botToken}` },
+    timeout: 10000,
+  }).catch(() => ({ data: [] }));
+  const roles = Array.isArray(response.data) ? response.data : [];
+  discordCache.roles = {
+    value: roles,
+    expiresAt: Date.now() + 5 * 60 * 1000,
+  };
+  return roles;
+}
+
+function addDiscordOAuthTimeout(strategy, timeoutMs = 15000) {
+  const oauthClient = strategy._oauth2;
+  const request = oauthClient._request.bind(oauthClient);
+
+  oauthClient._request = (method, url, headers, postBody, accessToken, callback) => {
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      const error = new Error('Discord OAuth request timed out');
+      error.code = 'DISCORD_OAUTH_TIMEOUT';
+      callback(error);
+    }, timeoutMs);
+
+    request(method, url, headers, postBody, accessToken, (error, result, response) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timeout);
+      callback(error, result, response);
+    });
+  };
+}
+
 function createApp() {
   const app = express();
   app.set('trust proxy', 1);
 
   if (!isDiscordConfigured) {
-    console.warn('Discord OAuth is not fully configured yet. Set BASE_URL, DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, DISCORD_GUILD_ID, and DISCORD_BOT_TOKEN in the environment.');
+    console.warn('Discord OAuth is not fully configured yet. Set BASE_URL, DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, and DISCORD_GUILD_ID in the environment.');
   }
 
   app.use(express.urlencoded({ extended: true }));
@@ -659,14 +734,14 @@ function createApp() {
   passport.serializeUser((user, done) => done(null, user));
   passport.deserializeUser((user, done) => done(null, user));
 
+  let discordStrategy = null;
   if (isDiscordConfigured) {
-    passport.use(
-      new DiscordStrategy(
+    discordStrategy = new DiscordStrategy(
         {
           clientID: process.env.DISCORD_CLIENT_ID,
           clientSecret: process.env.DISCORD_CLIENT_SECRET,
           callbackURL: `${baseUrl}/auth/discord/callback`,
-          scope: ['identify'],
+          scope: ['identify', 'guilds.members.read'],
         },
         async (accessToken, refreshToken, profile, done) => {
           try {
@@ -676,19 +751,35 @@ function createApp() {
             let staffRoleSlugs = [];
             let accessDetails = { ...DEFAULT_STAFF_ACCESS };
 
-            if (guildId && process.env.DISCORD_BOT_TOKEN) {
+            if (guildId) {
               let memberError = null;
-              const memberResponse = await axios.get(
+              let memberResponse = await axios.get(
                 `https://discord.com/api/guilds/${guildId}/members/${profile.id}`,
                 {
                   headers: {
-                    Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+                    Authorization: `Bearer ${accessToken}`,
                   },
+                  timeout: 10000,
                 }
               ).catch((error) => {
                 memberError = error;
                 return null;
               });
+
+              if (!memberResponse && memberError?.response?.status !== 429 && process.env.DISCORD_BOT_TOKEN) {
+                memberResponse = await axios.get(
+                  `https://discord.com/api/guilds/${guildId}/members/${profile.id}`,
+                  {
+                    headers: {
+                      Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+                    },
+                    timeout: 10000,
+                  }
+                ).catch((error) => {
+                  memberError = error;
+                  return null;
+                });
+              }
 
               if (memberError) {
                 console.error('Discord member verification failed:', {
@@ -700,16 +791,7 @@ function createApp() {
 
               guildMembership = Boolean(memberResponse?.data);
 
-              const guildRolesResponse = process.env.DISCORD_BOT_TOKEN
-                ? await axios.get(`https://discord.com/api/guilds/${guildId}/roles`, {
-                    headers: {
-                      Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
-                    },
-                  }).catch(() => ({ data: [] }))
-                : { data: [] };
-              const discordRoles = Array.isArray(guildRolesResponse.data)
-                ? guildRolesResponse.data
-                : [];
+              const discordRoles = await getGuildRoles(guildId, process.env.DISCORD_BOT_TOKEN);
 
               const roleAccess = matchStaffRoles(
                 memberResponse?.data?.roles || [],
@@ -771,8 +853,9 @@ function createApp() {
             return done(error, null);
           }
         }
-      )
     );
+    passport.use(discordStrategy);
+    addDiscordOAuthTimeout(discordStrategy);
   }
 
   function requireStaffAccess(req, res, next) {
@@ -825,17 +908,17 @@ function createApp() {
           <body style="font-family:Arial,sans-serif;background:#0c1220;color:#edf3ff;padding:40px;line-height:1.6;">
             <div style="max-width:700px;margin:0 auto;padding:32px;border:1px solid rgba(255,255,255,.08);border-radius:16px;background:#111c2b;">
               <h1>Discord OAuth is not configured</h1>
-              <p>The staff portal login cannot work until the Discord app values are set in <strong>.env</strong>.</p>
+              <p>The staff portal login cannot work until the Discord app values are set in the environment.</p>
               <p>Required values:</p>
               <ul>
                 <li>DISCORD_CLIENT_ID</li>
                 <li>DISCORD_CLIENT_SECRET</li>
                 <li>DISCORD_GUILD_ID</li>
-                <li>DISCORD_BOT_TOKEN</li>
                 <li>BASE_URL</li>
               </ul>
+              <p><code>DISCORD_BOT_TOKEN</code> is optional for sign-in, but enables the fallback member lookup and unique-rank checks.</p>
               <p>Redirect URL must be set in Discord Developer Portal:</p>
-              <code style="display:block;padding:12px;border-radius:8px;background:#0b1320;white-space:pre-wrap;">${baseUrl}/auth/discord/callback</code>
+              <code style="display:block;padding:12px;border-radius:8px;background:#0b1320;white-space:pre-wrap;">${baseUrl}/auth/discord/client-callback</code>
               <p><a href="/" style="color:#5ea7ff;">Return to the public site</a></p>
             </div>
           </body>
@@ -845,29 +928,178 @@ function createApp() {
 
     const redirectTo = typeof req.query.redirect === 'string' ? req.query.redirect : '/staff';
     req.session.redirectTo = redirectTo;
-    passport.authenticate('discord')(req, res, next);
+    const state = crypto.randomBytes(24).toString('hex');
+    req.session.discordOAuthState = state;
+    const callbackUrl = `${baseUrl}/auth/discord/client-callback`;
+    const authorizationUrl = new URL('https://discord.com/oauth2/authorize');
+    authorizationUrl.search = new URLSearchParams({
+      client_id: process.env.DISCORD_CLIENT_ID,
+      redirect_uri: callbackUrl,
+      response_type: 'token',
+      scope: 'identify guilds.members.read',
+      state,
+    }).toString();
+    res.redirect(authorizationUrl.toString());
+  });
+
+  app.get('/auth/discord/client-callback', (req, res) => {
+    res.type('html').send(`
+      <!doctype html>
+      <html lang="en">
+        <head><meta charset="utf-8"><title>Verifying Discord</title></head>
+        <body style="font-family:Arial,sans-serif;background:#0c1220;color:#edf3ff;padding:40px;">
+          <p id="message">Verifying your Discord account...</p>
+          <script>
+            const params = new URLSearchParams(window.location.hash.slice(1));
+            const accessToken = params.get('access_token');
+            const state = params.get('state');
+            const error = params.get('error');
+            const message = document.getElementById('message');
+            if (error || !accessToken || !state) {
+              message.textContent = 'Discord authorization was cancelled or did not return a token.';
+            } else {
+              fetch('/api/auth/discord/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({ accessToken, state })
+              }).then((response) => response.json()).then((result) => {
+                window.location.replace(result.redirect || '/staff?auth=failed&reason=discord-callback');
+              }).catch(() => {
+                message.textContent = 'Verification failed. Please return to the staff portal and try again.';
+              });
+            }
+          </script>
+        </body>
+      </html>
+    `);
+  });
+
+  app.post('/api/auth/discord/verify', async (req, res) => {
+    const { accessToken, state } = req.body || {};
+    if (!accessToken || !state || state !== req.session.discordOAuthState) {
+      return res.status(400).json({ redirect: '/staff?auth=failed&reason=discord-state' });
+    }
+    delete req.session.discordOAuthState;
+
+    try {
+      const profileResponse = await axios.get('https://discord.com/api/users/@me', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        timeout: 10000,
+      });
+      return discordStrategy._verify(accessToken, null, profileResponse.data, (error, user) => {
+        if (error) {
+          console.error('Discord profile verification failed:', getDiscordErrorDetails(error));
+          return res.json({ redirect: `/staff?auth=failed&reason=${getDiscordFailureReason(error)}` });
+        }
+        if (!user) {
+          return res.json({ redirect: '/staff?auth=failed&reason=discord-access' });
+        }
+        req.logIn(user, (loginError) => {
+          if (loginError) {
+            console.error('Discord session failed:', loginError.message);
+            return res.json({ redirect: '/staff?auth=failed&reason=session' });
+          }
+          return res.json({ redirect: req.session.redirectTo || '/staff' });
+        });
+      });
+    } catch (error) {
+      console.error('Discord profile request failed:', getDiscordErrorDetails(error));
+      return res.json({ redirect: `/staff?auth=failed&reason=${getDiscordFailureReason(error)}` });
+    }
   });
 
   app.get('/auth/discord/callback', (req, res, next) => {
-    passport.authenticate('discord', (error, user) => {
-      if (error) {
-        console.error('Discord callback failed:', getDiscordErrorDetails(error));
-        return res.redirect(`/staff?auth=failed&reason=${getDiscordFailureReason(error)}`);
+    if (!discordStrategy || !req.query.code) {
+      return res.redirect('/staff?auth=failed&reason=discord-callback');
+    }
+
+    if (discordTokenCooldownUntil > Date.now()) {
+      const retryAfter = Math.ceil((discordTokenCooldownUntil - Date.now()) / 1000);
+      return res.redirect(`/staff?auth=failed&reason=discord-rate-limited&retryAfter=${retryAfter}`);
+    }
+
+    const callbackCode = String(req.query.code);
+    const previousUse = usedDiscordCallbackCodes.get(callbackCode);
+    if (previousUse && previousUse > Date.now() - 10 * 60 * 1000) {
+      return res.redirect('/staff?auth=failed&reason=discord-code-used');
+    }
+    usedDiscordCallbackCodes.set(callbackCode, Date.now());
+    for (const [code, usedAt] of usedDiscordCallbackCodes) {
+      if (usedAt < Date.now() - 10 * 60 * 1000) {
+        usedDiscordCallbackCodes.delete(code);
+      }
+    }
+
+    const callbackTimeout = setTimeout(() => {
+      console.error('Discord callback timed out before authentication completed');
+      if (!res.headersSent) {
+        res.redirect('/staff?auth=failed&reason=discord-timeout');
+      }
+    }, 20000);
+
+    const finish = (redirect) => {
+      clearTimeout(callbackTimeout);
+      if (!res.headersSent) {
+        res.redirect(redirect);
+      }
+    };
+
+    axios.post('https://discord.com/api/oauth2/token', new URLSearchParams({
+      client_id: process.env.DISCORD_CLIENT_ID,
+      client_secret: process.env.DISCORD_CLIENT_SECRET,
+      grant_type: 'authorization_code',
+      code: callbackCode,
+      redirect_uri: `${baseUrl}/auth/discord/callback`,
+    }).toString(), {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      timeout: 10000,
+    }).then(async (tokenResponse) => {
+      const accessToken = tokenResponse.data?.access_token;
+      if (!accessToken) {
+        throw new Error('Discord did not return an access token');
       }
 
-      if (!user) {
-        return res.redirect('/staff?auth=failed&reason=discord-access');
-      }
+      discordRateLimitStreak = 0;
+      discordTokenCooldownUntil = 0;
 
-      return req.logIn(user, (loginError) => {
-        if (loginError) {
-          console.error('Discord session failed:', loginError.message);
-          return res.redirect('/staff?auth=failed&reason=session');
+      const profileResponse = await axios.get('https://discord.com/api/users/@me', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        timeout: 10000,
+      });
+      return { accessToken, profile: profileResponse.data };
+    }).then(({ accessToken, profile }) => {
+      discordStrategy._verify(accessToken, null, profile, (error, user) => {
+        if (error) {
+          console.error('Discord profile verification failed:', getDiscordErrorDetails(error));
+          return finish(`/staff?auth=failed&reason=${getDiscordFailureReason(error)}`);
+        }
+        if (!user) {
+          return finish('/staff?auth=failed&reason=discord-access');
         }
 
-        return res.redirect(req.session.redirectTo || '/staff');
+        req.logIn(user, (loginError) => {
+          if (loginError) {
+            console.error('Discord session failed:', loginError.message);
+            return finish('/staff?auth=failed&reason=session');
+          }
+          return finish(req.session.redirectTo || '/staff');
+        });
       });
-    })(req, res, next);
+    }).catch((error) => {
+      console.error('Discord token exchange failed:', getDiscordErrorDetails(error));
+      if (error?.response?.status === 429 || isDiscordRateLimitError(error)) {
+        const providerRetryAfter = getDiscordRetryAfter(error);
+        discordRateLimitStreak = Math.min(discordRateLimitStreak + 1, 4);
+        const retryAfter = Math.max(
+          providerRetryAfter,
+          30 * (2 ** (discordRateLimitStreak - 1))
+        );
+        discordTokenCooldownUntil = Date.now() + retryAfter * 1000;
+        return finish(`/staff?auth=failed&reason=discord-rate-limited&retryAfter=${retryAfter}`);
+      }
+      finish(`/staff?auth=failed&reason=${getDiscordFailureReason(error)}`);
+    });
   });
 
   app.get('/logout', (req, res, next) => {
