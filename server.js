@@ -19,9 +19,16 @@ const baseUrl = normalizeBaseUrl(process.env.BASE_URL);
 const guildId = process.env.DISCORD_GUILD_ID;
 const staffRoleMap = parseStaffRoleMap(process.env.DISCORD_STAFF_ROLE_MAP);
 const legacyStaffRoleIds = parseStaffRoleIds(process.env.DISCORD_STAFF_ROLE_IDS);
+const discordCache = {
+  roles: { value: [], expiresAt: 0 },
+  uniqueHoldings: { value: {}, expiresAt: 0 },
+};
 
 const isDiscordConfigured = Boolean(
-  process.env.DISCORD_CLIENT_ID && process.env.DISCORD_CLIENT_SECRET
+  process.env.DISCORD_CLIENT_ID
+  && process.env.DISCORD_CLIENT_SECRET
+  && process.env.DISCORD_GUILD_ID
+  && baseUrl
 );
 
 const STAFF_RANK_STRUCTURE = [
@@ -354,6 +361,10 @@ async function getGuildRoleMembershipSummary(guildIdValue, botToken, roleMapValu
     return {};
   }
 
+  if (discordCache.uniqueHoldings.expiresAt > Date.now()) {
+    return discordCache.uniqueHoldings.value;
+  }
+
   const uniqueHoldings = {};
   for (const entry of roleMapValue) {
     const slug = normalizeRankSlug(entry.slug);
@@ -372,6 +383,7 @@ async function getGuildRoleMembershipSummary(guildIdValue, botToken, roleMapValu
     const response = await axios
       .get(`https://discord.com/api/guilds/${guildIdValue}/members${query}`, {
         headers: { Authorization: `Bot ${botToken}` },
+        timeout: 10000,
       })
       .catch(() => ({ data: [] }));
 
@@ -397,7 +409,32 @@ async function getGuildRoleMembershipSummary(guildIdValue, botToken, roleMapValu
     }
   }
 
+  discordCache.uniqueHoldings = {
+    value: uniqueHoldings,
+    expiresAt: Date.now() + 5 * 60 * 1000,
+  };
   return uniqueHoldings;
+}
+
+async function getGuildRoles(guildIdValue, botToken) {
+  if (!guildIdValue || !botToken) {
+    return [];
+  }
+
+  if (discordCache.roles.expiresAt > Date.now()) {
+    return discordCache.roles.value;
+  }
+
+  const response = await axios.get(`https://discord.com/api/guilds/${guildIdValue}/roles`, {
+    headers: { Authorization: `Bot ${botToken}` },
+    timeout: 10000,
+  }).catch(() => ({ data: [] }));
+  const roles = Array.isArray(response.data) ? response.data : [];
+  discordCache.roles = {
+    value: roles,
+    expiresAt: Date.now() + 5 * 60 * 1000,
+  };
+  return roles;
 }
 
 function getUniqueRankConflict(slug, uniqueHolderSummary = {}) {
@@ -416,7 +453,7 @@ function createApp() {
   app.set('trust proxy', 1);
 
   if (!isDiscordConfigured) {
-    console.warn('Discord OAuth is not fully configured yet. Set DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET in your environment.');
+    console.warn('Discord OAuth is not fully configured yet. Set BASE_URL, DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, and DISCORD_GUILD_ID in the environment.');
   }
 
   app.use(express.urlencoded({ extended: true }));
@@ -448,7 +485,7 @@ function createApp() {
           clientID: process.env.DISCORD_CLIENT_ID,
           clientSecret: process.env.DISCORD_CLIENT_SECRET,
           callbackURL: `${baseUrl}/auth/discord/callback`,
-          scope: ['identify'],
+          scope: ['identify', 'guilds.members.read'],
         },
         async (accessToken, refreshToken, profile, done) => {
           try {
@@ -458,28 +495,45 @@ function createApp() {
             let staffRoleSlugs = [];
             let accessDetails = { ...DEFAULT_STAFF_ACCESS };
 
-            if (guildId && process.env.DISCORD_BOT_TOKEN) {
-              const memberResponse = await axios.get(
-                `https://discord.com/api/guilds/${guildId}/members/${profile.id}`,
+            if (guildId) {
+              let memberError = null;
+              let memberResponse = await axios.get(
+                `https://discord.com/api/users/@me/guilds/${guildId}/member`,
                 {
-                  headers: {
-                    Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
-                  },
+                  headers: { Authorization: `Bearer ${accessToken}` },
+                  timeout: 10000,
                 }
-              ).catch(() => null);
+              ).catch((error) => {
+                memberError = error;
+                return null;
+              });
 
-              guildMembership = Boolean(memberResponse?.data);
-
-              const guildRolesResponse = process.env.DISCORD_BOT_TOKEN
-                ? await axios.get(`https://discord.com/api/guilds/${guildId}/roles`, {
+              if (!memberResponse && process.env.DISCORD_BOT_TOKEN) {
+                memberResponse = await axios.get(
+                  `https://discord.com/api/guilds/${guildId}/members/${profile.id}`,
+                  {
                     headers: {
                       Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
                     },
-                  }).catch(() => ({ data: [] }))
-                : { data: [] };
-              const discordRoles = Array.isArray(guildRolesResponse.data)
-                ? guildRolesResponse.data
-                : [];
+                    timeout: 10000,
+                  }
+                ).catch((error) => {
+                  memberError = error;
+                  return null;
+                });
+              }
+
+              if (memberError) {
+                console.error('Discord member verification failed:', {
+                  status: memberError.response?.status,
+                  code: memberError.response?.data?.code,
+                  message: memberError.response?.data?.message || memberError.message,
+                });
+              }
+
+              guildMembership = Boolean(memberResponse?.data);
+
+              const discordRoles = await getGuildRoles(guildId, process.env.DISCORD_BOT_TOKEN);
 
               const roleAccess = matchStaffRoles(
                 memberResponse?.data?.roles || [],
@@ -500,23 +554,25 @@ function createApp() {
                   discordRoles
                 );
 
-                const uniqueRoleSummary = await getGuildRoleMembershipSummary(
-                  guildId,
-                  process.env.DISCORD_BOT_TOKEN,
-                  staffRoleMap
-                );
-
                 const rankDetails = highestRank || resolveRankDetails(staffRoleSlug);
                 accessDetails = { ...DEFAULT_STAFF_ACCESS, ...rankDetails.permissions };
 
-                if (getUniqueRankConflict(staffRoleSlug, uniqueRoleSummary)) {
-                  isStaff = false;
-                  staffRoleSlug = null;
-                  staffRoleSlugs = [];
-                  accessDetails = {
-                    ...DEFAULT_STAFF_ACCESS,
-                    accessName: 'Rank conflict detected',
-                  };
+                if (process.env.DISCORD_ENFORCE_UNIQUE_RANKS === 'true') {
+                  const uniqueRoleSummary = await getGuildRoleMembershipSummary(
+                    guildId,
+                    process.env.DISCORD_BOT_TOKEN,
+                    staffRoleMap
+                  );
+
+                  if (getUniqueRankConflict(staffRoleSlug, uniqueRoleSummary)) {
+                    isStaff = false;
+                    staffRoleSlug = null;
+                    staffRoleSlugs = [];
+                    accessDetails = {
+                      ...DEFAULT_STAFF_ACCESS,
+                      accessName: 'Rank conflict detected',
+                    };
+                  }
                 }
               }
             }
@@ -572,7 +628,7 @@ function createApp() {
   }
 
   app.get('/auth/discord', (req, res, next) => {
-    if (!process.env.DISCORD_CLIENT_ID || !process.env.DISCORD_CLIENT_SECRET || !process.env.DISCORD_GUILD_ID) {
+    if (!isDiscordConfigured) {
       return res.status(500).send(`
         <html>
           <head><title>Discord OAuth misconfigured</title></head>
@@ -585,9 +641,9 @@ function createApp() {
                 <li>DISCORD_CLIENT_ID</li>
                 <li>DISCORD_CLIENT_SECRET</li>
                 <li>DISCORD_GUILD_ID</li>
-                <li>DISCORD_BOT_TOKEN</li>
                 <li>BASE_URL</li>
               </ul>
+              <p><code>DISCORD_BOT_TOKEN</code> is optional for sign-in, but enables the fallback member lookup and unique-rank checks.</p>
               <p>Redirect URL must be set in Discord Developer Portal:</p>
               <code style="display:block;padding:12px;border-radius:8px;background:#0b1320;white-space:pre-wrap;">${baseUrl}/auth/discord/callback</code>
               <p><a href="/" style="color:#5ea7ff;">Return to the public site</a></p>
