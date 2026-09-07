@@ -265,6 +265,14 @@ function getDiscordFailureReason(error) {
   return 'discord-callback';
 }
 
+function getDiscordErrorDetails(error) {
+  return error?.oauthError?.data
+    || error?.oauthError?.message
+    || error?.response?.data
+    || error?.message
+    || 'unknown-discord-error';
+}
+
 function resolveRankDetails(slug = '') {
   const normalized = normalizeRankSlug(slug);
   return STAFF_RANK_LOOKUP.get(normalized) || {
@@ -593,7 +601,7 @@ function createApp() {
   app.get('/auth/discord/callback', (req, res, next) => {
     passport.authenticate('discord', (error, user) => {
       if (error) {
-        console.error('Discord callback failed:', error.response?.data || error.message);
+        console.error('Discord callback failed:', getDiscordErrorDetails(error));
         return res.redirect(`/staff?auth=failed&reason=${getDiscordFailureReason(error)}`);
       }
 
