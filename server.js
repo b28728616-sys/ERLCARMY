@@ -276,6 +276,14 @@ function getDiscordFailureReason(error) {
   return 'discord-callback';
 }
 
+function isDiscordRateLimitError(error) {
+  const errorMessage = String(error?.message || '').toLowerCase();
+  const errorDetails = JSON.stringify(getDiscordErrorDetails(error)).toLowerCase();
+  return errorMessage.includes('1015')
+    || errorDetails.includes('1015')
+    || errorMessage.includes('rate limit');
+}
+
 function getDiscordErrorDetails(error) {
   return error?.oauthError?.data
     || error?.oauthError?.message
@@ -659,9 +667,12 @@ function createApp() {
   });
 
   app.get('/auth/discord/callback', (req, res, next) => {
-    passport.authenticate('discord', (error, user) => {
+    const authenticateDiscord = (attempt = 0) => passport.authenticate('discord', (error, user) => {
       if (error) {
         console.error('Discord callback failed:', getDiscordErrorDetails(error));
+        if (attempt === 0 && isDiscordRateLimitError(error)) {
+          return setTimeout(() => authenticateDiscord(1)(req, res, next), 2000);
+        }
         return res.redirect(`/staff?auth=failed&reason=${getDiscordFailureReason(error)}`);
       }
 
