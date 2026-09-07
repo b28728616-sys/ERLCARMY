@@ -1169,3 +1169,18 @@
     </script>
   </body>
 </html>
+<% if (isManagement) { %>
+<section>
+  <h3>Management Infractions</h3>
+
+  <% if (infractions.length === 0) { %>
+    <p>No management infractions logged.</p>
+  <% } else { %>
+    <ul>
+      <% infractions.forEach(i => { %>
+        <li><%= i.reason %></li>
+      <% }) %>
+    </ul>
+  <% } %>
+</section>
+<% } %>
