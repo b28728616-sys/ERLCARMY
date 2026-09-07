@@ -24,6 +24,7 @@ const discordCache = {
   uniqueHoldings: { value: {}, expiresAt: 0 },
 };
 const usedDiscordCallbackCodes = new Map();
+let discordTokenCooldownUntil = 0;
 
 const isDiscordConfigured = Boolean(
   process.env.DISCORD_CLIENT_ID
@@ -707,6 +708,11 @@ function createApp() {
       return res.redirect('/staff?auth=failed&reason=discord-callback');
     }
 
+    if (discordTokenCooldownUntil > Date.now()) {
+      const retryAfter = Math.ceil((discordTokenCooldownUntil - Date.now()) / 1000);
+      return res.redirect(`/staff?auth=failed&reason=discord-rate-limited&retryAfter=${retryAfter}`);
+    }
+
     const callbackCode = String(req.query.code);
     const previousUse = usedDiscordCallbackCodes.get(callbackCode);
     if (previousUse && previousUse > Date.now() - 10 * 60 * 1000) {
@@ -775,6 +781,7 @@ function createApp() {
       console.error('Discord token exchange failed:', getDiscordErrorDetails(error));
       if (error?.response?.status === 429 || isDiscordRateLimitError(error)) {
         const retryAfter = getDiscordRetryAfter(error);
+        discordTokenCooldownUntil = Date.now() + retryAfter * 1000;
         return finish(`/staff?auth=failed&reason=discord-rate-limited&retryAfter=${retryAfter}`);
       }
       finish(`/staff?auth=failed&reason=${getDiscordFailureReason(error)}`);
