@@ -25,6 +25,7 @@ const discordCache = {
 };
 const usedDiscordCallbackCodes = new Map();
 let discordTokenCooldownUntil = 0;
+let discordRateLimitStreak = 0;
 
 const isDiscordConfigured = Boolean(
   process.env.DISCORD_CLIENT_ID
@@ -698,6 +699,11 @@ function createApp() {
       `);
     }
 
+    if (discordTokenCooldownUntil > Date.now()) {
+      const retryAfter = Math.ceil((discordTokenCooldownUntil - Date.now()) / 1000);
+      return res.redirect(`/staff?auth=failed&reason=discord-rate-limited&retryAfter=${retryAfter}`);
+    }
+
     const redirectTo = typeof req.query.redirect === 'string' ? req.query.redirect : '/staff';
     req.session.redirectTo = redirectTo;
     passport.authenticate('discord')(req, res, next);
@@ -754,6 +760,9 @@ function createApp() {
         throw new Error('Discord did not return an access token');
       }
 
+      discordRateLimitStreak = 0;
+      discordTokenCooldownUntil = 0;
+
       const profileResponse = await axios.get('https://discord.com/api/users/@me', {
         headers: { Authorization: `Bearer ${accessToken}` },
         timeout: 10000,
@@ -780,7 +789,12 @@ function createApp() {
     }).catch((error) => {
       console.error('Discord token exchange failed:', getDiscordErrorDetails(error));
       if (error?.response?.status === 429 || isDiscordRateLimitError(error)) {
-        const retryAfter = getDiscordRetryAfter(error);
+        const providerRetryAfter = getDiscordRetryAfter(error);
+        discordRateLimitStreak = Math.min(discordRateLimitStreak + 1, 4);
+        const retryAfter = Math.max(
+          providerRetryAfter,
+          30 * (2 ** (discordRateLimitStreak - 1))
+        );
         discordTokenCooldownUntil = Date.now() + retryAfter * 1000;
         return finish(`/staff?auth=failed&reason=discord-rate-limited&retryAfter=${retryAfter}`);
       }
