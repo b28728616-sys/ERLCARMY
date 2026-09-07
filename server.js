@@ -513,8 +513,9 @@ function createApp() {
   passport.serializeUser((user, done) => done(null, user));
   passport.deserializeUser((user, done) => done(null, user));
 
+  let discordStrategy = null;
   if (isDiscordConfigured) {
-    const discordStrategy = new DiscordStrategy(
+    discordStrategy = new DiscordStrategy(
         {
           clientID: process.env.DISCORD_CLIENT_ID,
           clientSecret: process.env.DISCORD_CLIENT_SECRET,
@@ -694,40 +695,66 @@ function createApp() {
   });
 
   app.get('/auth/discord/callback', (req, res, next) => {
-    let callbackTimedOut = false;
+    if (!discordStrategy || !req.query.code) {
+      return res.redirect('/staff?auth=failed&reason=discord-callback');
+    }
+
     const callbackTimeout = setTimeout(() => {
-      callbackTimedOut = true;
       console.error('Discord callback timed out before authentication completed');
-      res.redirect('/staff?auth=failed&reason=discord-timeout');
+      if (!res.headersSent) {
+        res.redirect('/staff?auth=failed&reason=discord-timeout');
+      }
     }, 20000);
-    res.on('finish', () => clearTimeout(callbackTimeout));
 
-    const authenticateDiscord = (attempt = 0) => passport.authenticate('discord', (error, user) => {
-      if (callbackTimedOut) {
-        return;
+    const finish = (redirect) => {
+      clearTimeout(callbackTimeout);
+      if (!res.headersSent) {
+        res.redirect(redirect);
+      }
+    };
+
+    axios.post('https://discord.com/api/oauth2/token', new URLSearchParams({
+      client_id: process.env.DISCORD_CLIENT_ID,
+      client_secret: process.env.DISCORD_CLIENT_SECRET,
+      grant_type: 'authorization_code',
+      code: req.query.code,
+      redirect_uri: `${baseUrl}/auth/discord/callback`,
+    }).toString(), {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      timeout: 10000,
+    }).then(async (tokenResponse) => {
+      const accessToken = tokenResponse.data?.access_token;
+      if (!accessToken) {
+        throw new Error('Discord did not return an access token');
       }
 
-      if (error) {
-        console.error('Discord callback failed:', getDiscordErrorDetails(error));
-        if (attempt === 0 && isDiscordRateLimitError(error)) {
-          return setTimeout(() => authenticateDiscord(1)(req, res, next), 2000);
-        }
-        return res.redirect(`/staff?auth=failed&reason=${getDiscordFailureReason(error)}`);
-      }
-
-      if (!user) {
-        return res.redirect('/staff?auth=failed&reason=discord-access');
-      }
-
-      return req.logIn(user, (loginError) => {
-        if (loginError) {
-          console.error('Discord session failed:', loginError.message);
-          return res.redirect('/staff?auth=failed&reason=session');
-        }
-
-        return res.redirect(req.session.redirectTo || '/staff');
+      const profileResponse = await axios.get('https://discord.com/api/users/@me', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        timeout: 10000,
       });
-    })(req, res, next);
+      return { accessToken, profile: profileResponse.data };
+    }).then(({ accessToken, profile }) => {
+      discordStrategy._verify(accessToken, null, profile, (error, user) => {
+        if (error) {
+          console.error('Discord profile verification failed:', getDiscordErrorDetails(error));
+          return finish(`/staff?auth=failed&reason=${getDiscordFailureReason(error)}`);
+        }
+        if (!user) {
+          return finish('/staff?auth=failed&reason=discord-access');
+        }
+
+        req.logIn(user, (loginError) => {
+          if (loginError) {
+            console.error('Discord session failed:', loginError.message);
+            return finish('/staff?auth=failed&reason=session');
+          }
+          return finish(req.session.redirectTo || '/staff');
+        });
+      });
+    }).catch((error) => {
+      console.error('Discord token exchange failed:', getDiscordErrorDetails(error));
+      finish(`/staff?auth=failed&reason=${getDiscordFailureReason(error)}`);
+    });
   });
 
   app.get('/logout', (req, res, next) => {
