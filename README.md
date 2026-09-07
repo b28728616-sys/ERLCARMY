@@ -56,7 +56,7 @@ The staff portal can query and send commands to an ERLC private server via the [
 - `GET /api/erlc/server` — fetches live server data (players, staff, kill logs, command logs, queue, vehicles, etc.). Append query flags: `?players=true&staff=true&killLogs=true`.
 - `POST /api/erlc/command` — runs a command on the server, e.g. `{"command":":h Server maintenance"}`.
 
-Both endpoints require Management access.
+Both endpoints require Management access. When `ERLC_SERVER_KEY` is not set, the API runs in **mock mode** and returns sample data so the staff portal UI is fully testable without a real server.
 
 ### Game log webhooks
 

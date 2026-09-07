@@ -13,6 +13,7 @@ dotenv.config();
 const OPERATIONS_FILE = path.join(__dirname, 'data', 'operations.json');
 const ERLC_API_BASE = 'https://api.erlc.gg';
 const ERLC_SERVER_KEY = process.env.ERLC_SERVER_KEY;
+const isErlcMockMode = !ERLC_SERVER_KEY;
 
 const port = Number(process.env.PORT) || 3000;
 function normalizeBaseUrl(value) {
@@ -594,7 +595,57 @@ async function dmUserInfraction(userId, infraction) {
   }
 }
 
+function getErlcMockServer() {
+  return {
+    isMock: true,
+    Name: 'ERLC Private Server',
+    CurrentPlayers: 12,
+    MaxPlayers: 50,
+    JoinKey: 'erlc-mock-key',
+    Staff: {
+      Admins: { '123': { Username: 'AdminPlayer', UserId: 123 } },
+      Mods: { '456': { Username: 'ModPlayer', UserId: 456 } },
+      Helpers: {},
+    },
+    Queue: [
+      { Username: 'QueuedUser1', UserId: 789 },
+      { Username: 'QueuedUser2', UserId: 790 },
+    ],
+    KillLogs: [
+      { Killer: 'OfficerA', Victim: 'CriminalX', Weapon: 'Pistol', Time: new Date().toISOString() },
+    ],
+    CommandLogs: [
+      { Player: 'ModPlayer', Command: ':msg Everyone please follow the rules', Time: new Date().toISOString() },
+    ],
+    JoinLogs: [
+      { Player: 'NewPlayer1', Time: new Date().toISOString() },
+      { Player: 'NewPlayer2', Time: new Date().toISOString() },
+    ],
+    Vehicles: [
+      { Name: 'Interceptor', Owner: 'OfficerA' },
+      { Name: 'SUV', Owner: 'OfficerB' },
+    ],
+  };
+}
+
+function getErlcMockCommandResult(command) {
+  return {
+    isMock: true,
+    success: true,
+    command: String(command || ''),
+    message: `Mock command sent: ${command || ''}`,
+    playersNotified: [],
+  };
+}
+
 async function erlcRequest(path, options = {}) {
+  if (isErlcMockMode) {
+    if (path.includes('/v2/server/command')) {
+      return getErlcMockCommandResult(options.data?.command);
+    }
+    return {};
+  }
+
   if (!ERLC_SERVER_KEY) {
     throw new Error('ERLC server key is not configured');
   }
@@ -613,6 +664,10 @@ async function erlcRequest(path, options = {}) {
 }
 
 async function fetchErlcServer(queryParams = {}) {
+  if (isErlcMockMode) {
+    return getErlcMockServer();
+  }
+
   const query = new URLSearchParams();
   const paramMap = {
     players: 'Players',
@@ -635,6 +690,10 @@ async function fetchErlcServer(queryParams = {}) {
 }
 
 async function runErlcCommand(command) {
+  if (isErlcMockMode) {
+    return getErlcMockCommandResult(command);
+  }
+
   return await erlcRequest('/v2/server/command', {
     method: 'POST',
     data: { command },
@@ -1440,7 +1499,7 @@ if (require.main === module) {
     console.log(`ERLCARMY is running on http://localhost:${port}`);
     console.log(`Base URL configured: ${baseUrl}`);
     console.log(`Discord OAuth configured: ${isDiscordConfigured ? 'yes' : 'no'}`);
-    console.log(`ERLC API configured: ${ERLC_SERVER_KEY ? 'yes' : 'no'}`);
+    console.log(`ERLC API configured: ${ERLC_SERVER_KEY ? 'yes' : 'mock mode (no key set)'}`);
   });
 }
 
@@ -1461,4 +1520,5 @@ module.exports = {
   dmUserInfraction,
   fetchErlcServer,
   runErlcCommand,
+  isErlcMockMode,
 };

@@ -827,8 +827,8 @@
           erlcStaffCount.textContent = staffTotal;
           erlcQueue.textContent = Array.isArray(data.Queue) ? data.Queue.length : '—';
 
-          erlcStatus.textContent = 'Online';
-          erlcStatus.className = 'status-pill success';
+          erlcStatus.textContent = data.isMock ? 'Mock mode' : 'Online';
+          erlcStatus.className = 'status-pill' + (data.isMock ? ' warning' : ' success');
         } catch (err) {
           erlcStatus.textContent = 'Offline';
           erlcStatus.className = 'status-pill';
