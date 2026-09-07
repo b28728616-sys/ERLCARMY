@@ -255,6 +255,10 @@ function parseStaffRoleMap(value = '') {
 function getDiscordFailureReason(error) {
   const status = error?.response?.status || error?.oauthError?.statusCode;
   const errorMessage = String(error?.message || '').toLowerCase();
+  const errorDetails = JSON.stringify(getDiscordErrorDetails(error)).toLowerCase();
+  if (errorMessage.includes('1015') || errorDetails.includes('1015') || errorMessage.includes('rate limit')) {
+    return 'discord-rate-limited';
+  }
   if (errorMessage.includes('access token')) {
     return 'discord-token-exchange';
   }
