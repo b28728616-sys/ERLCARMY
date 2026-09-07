@@ -2,6 +2,7 @@ const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
 const axios = require('axios');
+const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const dotenv = require('dotenv');
@@ -27,6 +28,53 @@ const discordCache = {
 const usedDiscordCallbackCodes = new Map();
 let discordTokenCooldownUntil = 0;
 let discordRateLimitStreak = 0;
+const operationsStorePath = path.join(__dirname, 'data', 'operations.json');
+
+function loadOperationsStore() {
+  try {
+    return JSON.parse(fs.readFileSync(operationsStorePath, 'utf8'));
+  } catch (error) {
+    return { shifts: [], gameLogs: [], actions: [], infractions: [] };
+  }
+}
+
+const operationsStore = loadOperationsStore();
+
+function saveOperationsStore() {
+  fs.mkdirSync(path.dirname(operationsStorePath), { recursive: true });
+  fs.writeFileSync(operationsStorePath, JSON.stringify(operationsStore, null, 2));
+}
+
+function getWeekStart(date = new Date()) {
+  const value = new Date(date);
+  const day = value.getUTCDay();
+  const offset = day === 0 ? -6 : 1 - day;
+  value.setUTCDate(value.getUTCDate() + offset);
+  value.setUTCHours(0, 0, 0, 0);
+  return value.toISOString();
+}
+
+function getWeeklyShiftSeconds(userId) {
+  const weekStart = getWeekStart();
+  return operationsStore.shifts
+    .filter((shift) => shift.userId === userId && shift.startedAt >= weekStart)
+    .reduce((total, shift) => total + (shift.durationSeconds || 0), 0);
+}
+
+function canUseAdministration(user) {
+  return Number(user?.rankLevel || 0) >= 6;
+}
+
+function canUseManagement(user) {
+  return Number(user?.rankLevel || 0) >= 10;
+}
+
+function requireStaffApi(req, res, next) {
+  if (!req.isAuthenticated() || !req.user?.isStaff) {
+    return res.status(401).json({ error: 'Staff authentication required.' });
+  }
+  next();
+}
 
 const isDiscordConfigured = Boolean(
   process.env.DISCORD_CLIENT_ID
@@ -905,6 +953,135 @@ function createApp() {
       authenticated: true,
       user: req.user,
     });
+  });
+
+  app.get('/api/staff/operations', requireStaffApi, (req, res) => {
+    const activeShift = operationsStore.shifts.find(
+      (shift) => shift.userId === req.user.id && !shift.endedAt
+    );
+    return res.json({
+      weeklyQuotaSeconds: 2 * 60 * 60,
+      weeklyShiftSeconds: getWeeklyShiftSeconds(req.user.id)
+        + (activeShift ? Math.floor((Date.now() - Date.parse(activeShift.startedAt)) / 1000) : 0),
+      activeShift,
+      canLogBan: canUseAdministration(req.user),
+      canLogInfraction: canUseManagement(req.user),
+      gameLogs: operationsStore.gameLogs.slice(-100).reverse(),
+      actions: operationsStore.actions.slice(-100).reverse(),
+      infractions: operationsStore.infractions.slice(-100).reverse(),
+    });
+  });
+
+  app.post('/api/staff/shifts/start', requireStaffApi, (req, res) => {
+    const activeShift = operationsStore.shifts.find(
+      (shift) => shift.userId === req.user.id && !shift.endedAt
+    );
+    if (activeShift) {
+      return res.status(409).json({ error: 'You already have an active shift.' });
+    }
+    const shift = {
+      id: crypto.randomUUID(),
+      userId: req.user.id,
+      username: req.user.username,
+      startedAt: new Date().toISOString(),
+      endedAt: null,
+      durationSeconds: 0,
+    };
+    operationsStore.shifts.push(shift);
+    saveOperationsStore();
+    return res.status(201).json(shift);
+  });
+
+  app.post('/api/staff/shifts/stop', requireStaffApi, (req, res) => {
+    const shift = operationsStore.shifts.find(
+      (entry) => entry.userId === req.user.id && !entry.endedAt
+    );
+    if (!shift) {
+      return res.status(409).json({ error: 'You do not have an active shift.' });
+    }
+    shift.endedAt = new Date().toISOString();
+    shift.durationSeconds = Math.max(0, Math.floor((Date.parse(shift.endedAt) - Date.parse(shift.startedAt)) / 1000));
+    saveOperationsStore();
+    return res.json(shift);
+  });
+
+  app.post('/api/staff/actions', requireStaffApi, (req, res) => {
+    const type = String(req.body?.type || '').toLowerCase();
+    const allowedTypes = new Set(['ban', 'bolo', 'warn', 'kick']);
+    if (!allowedTypes.has(type)) {
+      return res.status(400).json({ error: 'Action must be ban, bolo, warn, or kick.' });
+    }
+    if (type === 'ban' && !canUseAdministration(req.user)) {
+      return res.status(403).json({ error: 'Administrator rank or higher is required to log bans.' });
+    }
+    const target = String(req.body?.target || '').trim();
+    const reason = String(req.body?.reason || '').trim();
+    if (!target || !reason) {
+      return res.status(400).json({ error: 'Target and reason are required.' });
+    }
+    const action = {
+      id: crypto.randomUUID(),
+      type,
+      target,
+      reason,
+      duration: String(req.body?.duration || '').trim() || null,
+      actorId: req.user.id,
+      actorUsername: req.user.username,
+      createdAt: new Date().toISOString(),
+    };
+    operationsStore.actions.push(action);
+    saveOperationsStore();
+    return res.status(201).json(action);
+  });
+
+  app.post('/api/staff/infractions', requireStaffApi, (req, res) => {
+    if (!canUseManagement(req.user)) {
+      return res.status(403).json({ error: 'Management rank or higher is required to create infractions.' });
+    }
+    const target = String(req.body?.target || '').trim();
+    const reason = String(req.body?.reason || '').trim();
+    if (!target || !reason) {
+      return res.status(400).json({ error: 'Target and reason are required.' });
+    }
+    const infraction = {
+      id: crypto.randomUUID(),
+      target,
+      reason,
+      severity: String(req.body?.severity || 'standard').trim(),
+      actorId: req.user.id,
+      actorUsername: req.user.username,
+      createdAt: new Date().toISOString(),
+    };
+    operationsStore.infractions.push(infraction);
+    saveOperationsStore();
+    return res.status(201).json(infraction);
+  });
+
+  app.post('/api/game/logs', (req, res) => {
+    const expectedSecret = process.env.GAME_LOG_WEBHOOK_SECRET;
+    if (!expectedSecret || req.get('x-erlcarmy-webhook') !== expectedSecret) {
+      return res.status(401).json({ error: 'Game log webhook authentication failed.' });
+    }
+    const type = String(req.body?.type || '').toLowerCase();
+    if (!['command', 'join', 'leave', 'kill'].includes(type)) {
+      return res.status(400).json({ error: 'Game log type must be command, join, leave, or kill.' });
+    }
+    const log = {
+      id: crypto.randomUUID(),
+      type,
+      player: String(req.body?.player || '').trim(),
+      command: String(req.body?.command || '').trim() || null,
+      target: String(req.body?.target || '').trim() || null,
+      reason: String(req.body?.reason || '').trim() || null,
+      serverId: String(req.body?.serverId || '').trim() || null,
+      createdAt: new Date().toISOString(),
+    };
+    if (!log.player) {
+      return res.status(400).json({ error: 'Player is required.' });
+    }
+    operationsStore.gameLogs.push(log);
+    saveOperationsStore();
+    return res.status(201).json(log);
   });
 
   app.get('/health', (req, res) => {

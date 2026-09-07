@@ -75,6 +75,7 @@
                 <div class="sidebar-block">
                   <p class="sidebar-label">Command</p>
                   <ul>
+                    <li><a href="#operations">Operations Desk</a></li>
                     <li><a href="#staff-expectations">Staff Expectations</a></li>
                     <li><a href="#command-usage">Command Usage</a></li>
                     <li><a href="#punishment-guidelines">Punishments</a></li>
@@ -106,11 +107,6 @@
 
                 <div class="dashboard-strip">
                   <article class="dash-card">
-                    <p class="dash-label">Executive Authority</p>
-                    <h4>President</h4>
-                    <span>Final command authority</span>
-                  </article>
-                  <article class="dash-card">
                     <p class="dash-label">Command Structure</p>
                     <h4>Staff Integrity</h4>
                     <span>Operational continuity</span>
@@ -136,6 +132,49 @@
                     <span id="roleBadge" class="status-pill">Staff</span>
                   </div>
                   <div id="roleDashboardGrid" class="dashboard-strip"></div>
+                </section>
+
+                <section id="operations" class="content-panel operations-panel">
+                  <div class="staff-portal-header">
+                    <div>
+                      <p class="eyebrow">Operations Control</p>
+                      <h3>Shift & Moderation Desk</h3>
+                    </div>
+                    <span id="quotaStatus" class="status-pill">0 / 2 hours</span>
+                  </div>
+                  <div class="operations-grid">
+                    <div class="operation-block">
+                      <p class="dash-label">Weekly shift quota</p>
+                      <div class="quota-track"><span id="quotaBar"></span></div>
+                      <p id="shiftStatus" class="staff-message">No active shift.</p>
+                      <div class="staff-input-row">
+                        <button id="startShiftBtn" class="btn btn-primary" type="button">Start shift</button>
+                        <button id="stopShiftBtn" class="btn btn-secondary" type="button" disabled>End shift</button>
+                      </div>
+                    </div>
+                    <form id="actionForm" class="operation-block">
+                      <p class="dash-label">Moderation action</p>
+                      <label>Action<select name="type"><option value="bolo">BOLO</option><option value="warn">Warning</option><option value="kick">Kick</option><option value="ban">Ban</option></select></label>
+                      <label>Target<input name="target" required placeholder="Player username"></label>
+                      <label>Reason<textarea name="reason" required rows="2" placeholder="Document the reason"></textarea></label>
+                      <label>Duration<input name="duration" placeholder="Optional duration"></label>
+                      <button class="btn btn-primary" type="submit">Log action</button>
+                      <p id="actionPermission" class="staff-message"></p>
+                    </form>
+                    <form id="infractionForm" class="operation-block">
+                      <p class="dash-label">Management infraction</p>
+                      <label>Target<input name="target" required placeholder="Staff username"></label>
+                      <label>Reason<textarea name="reason" required rows="2" placeholder="Document the infraction"></textarea></label>
+                      <label>Severity<select name="severity"><option value="standard">Standard</option><option value="serious">Serious</option><option value="critical">Critical</option></select></label>
+                      <button class="btn btn-primary" type="submit">Create infraction</button>
+                      <p id="infractionPermission" class="staff-message"></p>
+                    </form>
+                  </div>
+                  <div class="operations-feeds">
+                    <div><p class="dash-label">Recent game logs</p><div id="gameLogsFeed" class="activity-feed"></div></div>
+                    <div><p class="dash-label">Recent actions</p><div id="actionsFeed" class="activity-feed"></div></div>
+                    <div><p class="dash-label">Recent infractions</p><div id="infractionsFeed" class="activity-feed"></div></div>
+                  </div>
                 </section>
 
                 <div class="handbook-source">
@@ -515,6 +554,83 @@
       const staffPortal = document.getElementById('staffPortal');
       const staffMessage = document.getElementById('staffMessage');
       const staffIdentity = document.getElementById('staffIdentity');
+      const startShiftBtn = document.getElementById('startShiftBtn');
+      const stopShiftBtn = document.getElementById('stopShiftBtn');
+      const actionForm = document.getElementById('actionForm');
+      const infractionForm = document.getElementById('infractionForm');
+
+      function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>'"]/g, (character) => ({
+          '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;',
+        }[character]));
+      }
+
+      function formatDuration(seconds) {
+        const minutes = Math.floor(Number(seconds || 0) / 60);
+        return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+      }
+
+      function renderActivity(elementId, entries, formatter) {
+        const element = document.getElementById(elementId);
+        element.innerHTML = entries.length
+          ? entries.map(formatter).join('')
+          : '<p class="empty-feed">No records yet.</p>';
+      }
+
+      function renderOperations(data) {
+        const quotaSeconds = data.weeklyQuotaSeconds || 7200;
+        const usedSeconds = data.weeklyShiftSeconds || 0;
+        const percentage = Math.min(100, Math.round((usedSeconds / quotaSeconds) * 100));
+        document.getElementById('quotaStatus').textContent = `${formatDuration(usedSeconds)} / 2h`;
+        document.getElementById('quotaBar').style.width = `${percentage}%`;
+        document.getElementById('shiftStatus').textContent = data.activeShift
+          ? `Active since ${new Date(data.activeShift.startedAt).toLocaleString()}`
+          : 'No active shift.';
+        startShiftBtn.disabled = Boolean(data.activeShift);
+        stopShiftBtn.disabled = !data.activeShift;
+        document.getElementById('actionPermission').textContent = data.canLogBan
+          ? 'Administrator+: bans, BOLOs, warnings, and kicks.'
+          : 'Staff: BOLOs, warnings, and kicks. Administrator+ required for bans.';
+        document.getElementById('infractionPermission').textContent = data.canLogInfraction
+          ? 'Management access enabled.'
+          : 'Management+ access required.';
+        actionForm.querySelector('option[value="ban"]').disabled = !data.canLogBan;
+        infractionForm.querySelectorAll('input, textarea, select, button').forEach((control) => {
+          control.disabled = !data.canLogInfraction;
+        });
+        renderActivity('gameLogsFeed', data.gameLogs, (entry) => `<div class="activity-item"><strong>${escapeHtml(entry.type.toUpperCase())}</strong><span>${escapeHtml(entry.player)}${entry.command ? ` · ${escapeHtml(entry.command)}` : ''}${entry.target ? ` → ${escapeHtml(entry.target)}` : ''}</span><small>${new Date(entry.createdAt).toLocaleString()}</small></div>`);
+        renderActivity('actionsFeed', data.actions, (entry) => `<div class="activity-item"><strong>${escapeHtml(entry.type.toUpperCase())}</strong><span>${escapeHtml(entry.target)} · ${escapeHtml(entry.reason)}</span><small>${escapeHtml(entry.actorUsername)} · ${new Date(entry.createdAt).toLocaleString()}</small></div>`);
+        renderActivity('infractionsFeed', data.infractions, (entry) => `<div class="activity-item"><strong>${escapeHtml(entry.severity.toUpperCase())}</strong><span>${escapeHtml(entry.target)} · ${escapeHtml(entry.reason)}</span><small>${escapeHtml(entry.actorUsername)} · ${new Date(entry.createdAt).toLocaleString()}</small></div>`);
+      }
+
+      async function loadOperations() {
+        const response = await fetch('/api/staff/operations', { credentials: 'same-origin' });
+        if (!response.ok) throw new Error('Operations data unavailable');
+        renderOperations(await response.json());
+      }
+
+      async function submitOperationsForm(form, endpoint) {
+        const response = await fetch(endpoint, {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.fromEntries(new FormData(form))),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Request failed');
+        form.reset();
+        await loadOperations();
+      }
+
+      startShiftBtn.addEventListener('click', async () => {
+        try { await fetch('/api/staff/shifts/start', { method: 'POST', credentials: 'same-origin' }); await loadOperations(); }
+        catch (error) { document.getElementById('shiftStatus').textContent = error.message; }
+      });
+      stopShiftBtn.addEventListener('click', async () => {
+        try { await fetch('/api/staff/shifts/stop', { method: 'POST', credentials: 'same-origin' }); await loadOperations(); }
+        catch (error) { document.getElementById('shiftStatus').textContent = error.message; }
+      });
+      actionForm.addEventListener('submit', async (event) => { event.preventDefault(); try { await submitOperationsForm(actionForm, '/api/staff/actions'); } catch (error) { document.getElementById('actionPermission').textContent = error.message; } });
+      infractionForm.addEventListener('submit', async (event) => { event.preventDefault(); try { await submitOperationsForm(infractionForm, '/api/staff/infractions'); } catch (error) { document.getElementById('infractionPermission').textContent = error.message; } });
 
       function showSignedOut(message) {
         staffPortal.classList.add('hidden');
@@ -699,6 +815,7 @@
             const accessSummary = rankAccessMap[roleKey] || 'Staff-level access granted by the command hierarchy.';
             staffIdentity.textContent = `${data.user.username || 'Staff member'} · ${roleLabel} · ${accessSummary}`;
             renderRoleDashboard(roleKey);
+            await loadOperations();
             window.location.hash = '#command';
             return;
           }

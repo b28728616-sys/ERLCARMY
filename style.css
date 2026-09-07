@@ -93,11 +93,25 @@ footer { padding: 30px 0; border-top: 1px solid var(--line); color: var(--muted)
 .staff-sidebar a:hover { background: rgba(103, 177, 255, .1); color: var(--text); }
 .sidebar-block + .sidebar-block { margin-top: 28px; }
 .staff-content { min-width: 0; display: grid; gap: 18px; }
-.dashboard-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 22px; }
+.dashboard-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 22px; }
 .dash-card { min-height: 122px; padding: 18px; box-shadow: none; }
 .dash-card h4 { font-family: "Barlow Condensed", sans-serif; font-size: 1.35rem; }
 .dash-card span { font-size: .82rem; }
 .content-panel { box-shadow: none; }
+.operations-panel { display: grid; gap: 22px; }
+.operations-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.operation-block { display: grid; align-content: start; gap: 10px; padding: 18px; background: rgba(10, 20, 32, .34); border: 1px solid var(--line); border-radius: 7px; }
+.operation-block label { display: grid; gap: 5px; color: var(--muted); font-size: .78rem; }
+.operation-block input, .operation-block select, .operation-block textarea { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); color: var(--text); font: inherit; font-size: .85rem; resize: vertical; }
+.operation-block button:disabled { cursor: not-allowed; opacity: .45; }
+.quota-track { height: 8px; overflow: hidden; border-radius: 999px; background: rgba(255, 255, 255, .1); }
+.quota-track span { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--green); transition: width .25s ease; }
+.operations-feeds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.activity-feed { display: grid; gap: 7px; max-height: 260px; overflow: auto; }
+.activity-item { display: grid; gap: 2px; padding: 10px; border: 1px solid var(--line); border-radius: 5px; background: rgba(255, 255, 255, .025); font-size: .78rem; }
+.activity-item strong { color: var(--gold); font-size: .68rem; letter-spacing: .1em; }
+.activity-item span { color: var(--text); }
+.activity-item small, .empty-feed { color: var(--muted); font-size: .72rem; }
 .manual-section h4, .manual-intro h4, .handbook-box h4 { margin: 0 0 14px; font-family: "Barlow Condensed", sans-serif; font-size: 2rem; line-height: 1; }
 .manual-section ul, .staff-panel ul { padding-left: 20px; color: var(--muted); }
 .manual-section li + li, .staff-panel li + li { margin-top: 8px; }
@@ -119,7 +133,7 @@ th { color: var(--text); font-size: .72rem; letter-spacing: .1em; text-transform
 	.hero h1 { font-size: clamp(3.4rem, 18vw, 5.6rem); }
 	.section { padding: 62px 0; }
 	.section-heading { display: block; }
-	.cards, .dashboard-strip, .inward-grid, .sf-detail-grid { grid-template-columns: 1fr; }
+	.cards, .dashboard-strip, .inward-grid, .sf-detail-grid, .operations-grid, .operations-feeds { grid-template-columns: 1fr; }
 	.staff-layout { grid-template-columns: 1fr; }
 	.staff-sidebar { position: static; }
 	.staff-sidebar ul { grid-template-columns: repeat(2, 1fr); }
