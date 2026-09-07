@@ -1125,4 +1125,51 @@ module.exports = {
   getHighestRankFromRoleList,
   getGuildRoleMembershipSummary,
   STAFF_RANK_STRUCTURE,
-};
+};{
+ 
+}
+app.get("/staff/infractions", async (req, res) => {
+  const rank = getUserRank(req);
+
+  const isManagement = MANAGEMENT_ROLES.includes(rank);
+
+  let infractions = await loadInfractions(); // your JSON file
+
+  if (!isManagement) {
+    // Remove ALL management infractions
+    infractions = infractions.filter(i => !i.managementOnly);
+  }
+
+  res.render("infractions", { infractions, rank });
+});
+
+app.get("/staff/operations", async (req, res) => {
+  const rank = getUserRank(req);
+  const management = MANAGEMENT_RANKS.has(rank);
+
+  let infractions = await loadInfractions();
+
+  if (!management) {
+    infractions = infractions.filter(i => !i.managementOnly);
+  }
+
+  res.render("operations", {
+    rank,
+    isManagement: management,
+    infractions
+  });
+});
+function getWeekKey(date = new Date()) {
+  const d = new Date(date);
+  const day = d.getUTCDay();
+  const diff = d.getUTCDate() - day; // Sunday as week start
+  const weekStart = new Date(d.setUTCDate(diff));
+  return weekStart.toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
+function getWeeklyShiftMinutes(ops, staffId, weekKey) {
+  const shifts = ops.shifts || [];
+  return shifts
+    .filter(s => s.staffId === staffId && s.weekOf === weekKey)
+    .reduce((sum, s) => sum + (s.durationMinutes || 0), 0);
+}

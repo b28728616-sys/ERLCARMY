@@ -1,0 +1,19 @@
+function requireManagement(req, res, next) {
+  if (!req.user) {
+    return res.redirect("/staff/login");
+  }
+
+  if (!isManagement(req)) {
+    return res.status(403).send("Access denied: Management only.");
+  }
+
+  next();
+}
+
+module.exports.requireManagement = requireManagement;
+const { requireManagement } = require("./rank-system");
+
+app.get("/staff/infractions", requireManagement, async (req, res) => {
+  const infractions = await loadInfractions();
+  res.render("infractions", { infractions });
+});

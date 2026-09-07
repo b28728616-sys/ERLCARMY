@@ -1,0 +1,28 @@
+app.post("/api/game/logs", (req, res) => {
+  const secret = process.env.GAME_LOG_WEBHOOK_SECRET;
+  const header = req.headers["x-erlcarmy-webhook"];
+
+  if (!secret || header !== secret) {
+    return res.status(401).json({ error: "Invalid webhook secret" });
+  }
+
+  const payload = req.body;
+  const { type, player, serverId, reason, command, target } = payload;
+
+  const ops = loadOperations();
+  ops.actions = ops.actions || [];
+
+  ops.actions.push({
+    id: `log-${Date.now()}`,
+    type,
+    player,
+    target: target || null,
+    serverId,
+    reason: reason || null,
+    command: command || null,
+    createdAt: new Date().toISOString()
+  });
+
+  saveOperations(ops);
+  res.json({ ok: true });
+});
