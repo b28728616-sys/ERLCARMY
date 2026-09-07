@@ -1,0 +1,19 @@
+{
+  "id": "log-1736292000000",
+  "type": "join",
+  "player": "Player123",
+  "serverId": "server-01",
+  "reason": null,
+  "command": null,
+  "createdAt": "2026-09-06T18:00:00.000Z"
+}
+app.get("/staff/logs", requireStaff, (req, res) => {
+  const ops = loadOperations();
+  const actions = ops.actions || [];
+
+  res.render("logs", {
+    user: req.user,
+    rank: getUserRank(req),
+    actions
+  });
+});

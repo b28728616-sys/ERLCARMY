@@ -1,0 +1,73 @@
+app.post("/staff/shifts/start", requireStaff, (req, res) => {
+  const ops = loadOperations();
+  ops.shifts = ops.shifts || [];
+
+  const now = new Date();
+  const weekKey = getWeekKey(now);
+
+  ops.shifts.push({
+    id: `shift-${Date.now()}`,
+    staffId: req.user.id,
+    staffName: req.user.username,
+    startedAt: now.toISOString(),
+    endedAt: null,
+    durationMinutes: 0,
+    weekOf: weekKey
+  });
+
+  saveOperations(ops);
+  res.redirect("/staff");
+});
+
+app.post("/staff/shifts/end", requireStaff, (req, res) => {
+  const ops = loadOperations();
+  ops.shifts = ops.shifts || [];
+
+  const openShift = ops.shifts
+    .filter(s => s.staffId === req.user.id && !s.endedAt)
+    .sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt))[0];
+
+  if (!openShift) {
+    return res.redirect("/staff");
+  }
+
+  const now = new Date();
+  const started = new Date(openShift.startedAt);
+  const durationMinutes = Math.max(
+    1,
+    Math.round((now - started) / 60000)
+  );
+
+  openShift.endedAt = now.toISOString();
+  openShift.durationMinutes = durationMinutes;
+
+  saveOperations(ops);
+  res.redirect("/staff");
+});
+app.get("/staff", requireStaff, (req, res) => {
+  const rank = getUserRank(req);
+  const management = MANAGEMENT_RANKS.has(rank);
+  const ops = loadOperations();
+
+  let infractions = ops.infractions || [];
+  if (!management) {
+    infractions = infractions.filter(i => !i.managementOnly);
+  }
+
+  const weekKey = getWeekKey();
+  const weeklyMinutes = getWeeklyShiftMinutes(ops, req.user.id, weekKey);
+  const quotaMinutes = 120;
+  const quotaRemaining = Math.max(0, quotaMinutes - weeklyMinutes);
+
+  res.render("staff-portal", {
+    user: req.user,
+    rank,
+    isManagement: management,
+    infractions,
+    shifts: ops.shifts || [],
+    actions: ops.actions || [],
+    weeklyMinutes,
+    quotaMinutes,
+    quotaRemaining
+  });
+});
