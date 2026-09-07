@@ -112,6 +112,68 @@ footer { padding: 30px 0; border-top: 1px solid var(--line); color: var(--muted)
 .activity-item strong { color: var(--gold); font-size: .68rem; letter-spacing: .1em; }
 .activity-item span { color: var(--text); }
 .activity-item small, .empty-feed { color: var(--muted); font-size: .72rem; }
+
+.status-pill.warning { border-color: rgba(224, 180, 94, .4); color: var(--gold); }
+
+.shift-status-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.shift-timer { color: var(--blue); font-family: "Courier New", monospace; font-size: 1.1rem; font-weight: 700; }
+
+.shift-history-section { margin-top: 18px; }
+.shift-history-table { background: rgba(10, 20, 32, .34); border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.shift-history-list { display: grid; }
+.shift-history-row { display: grid; grid-template-columns: 120px 1fr 110px 90px; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: .8rem; }
+.shift-history-row:last-child { border-bottom: none; }
+.shift-history-row.shift-active { background: rgba(117, 210, 164, .08); }
+.shift-history-row.shift-ended { background: rgba(220, 232, 246, .03); }
+.shift-name { color: var(--text); font-weight: 600; }
+.shift-dates { color: var(--muted); font-size: .75rem; }
+.shift-duration { color: var(--gold); font-size: .8rem; }
+.shift-status-badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px; font-size: .68rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.shift-active .shift-status-badge { background: rgba(117, 210, 164, .2); color: var(--green); border: 1px solid rgba(117, 210, 164, .5); }
+.shift-ended .shift-status-badge { background: rgba(220, 232, 246, .1); color: var(--muted); border: 1px solid var(--line); }
+
+.ban-bolo-section { margin-top: 18px; }
+.ban-bolo-list { display: grid; gap: 8px; }
+.ban-bolo-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 6px; background: rgba(226, 20, 60, .08); }
+.ban-bolo-info { display: grid; gap: 2px; }
+.ban-bolo-target { color: var(--text); font-weight: 600; display: block; }
+.ban-bolo-reason { color: var(--muted); font-size: .82rem; display: block; }
+.ban-bolo-actor { color: var(--muted); }
+
+.form-row-inline { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.form-row-inline label { display: grid; gap: 5px; }
+@media (max-width: 800px) { .form-row-inline { grid-template-columns: 1fr; } }
+
+.action-ban-bolo { color: #ff6b6b; }
+.action-ban { color: #ff4444; }
+.action-warn { color: #e0b45e; }
+.action-kick { color: #67b1ff; }
+.action-bolo { color: #f06cff; }
+.action-default { color: var(--gold); }
+
+.severity-standard { color: #67b1ff; }
+.severity-serious { color: #e0b45e; }
+.severity-critical { color: #ff4444; }
+
+.status-badge { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 999px; font-size: .62rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-left: 6px; }
+.status-badge.pending { background: rgba(224, 180, 94, .1); color: var(--gold); border: 1px solid rgba(224, 180, 94, .4); }
+.status-badge.completed { background: rgba(117, 210, 164, .1); color: var(--green); border: 1px solid rgba(117, 210, 164, .4); }
+
+.btn-sm { padding: 6px 12px; font-size: .72rem; }
+.btn-confirm { background: rgba(226, 20, 60, .15); color: #ff6b6b; border: 1px solid rgba(226, 20, 60, .5); }
+
+.erlc-panel { display: grid; gap: 22px; }
+.erlc-dashboard { display: grid; gap: 18px; }
+.erlc-server-info { display: grid; gap: 12px; }
+.erlc-info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.erlc-stat { display: flex; flex-direction: column; gap: 2px; }
+.erlc-stat-label { color: var(--muted); font-size: .65rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.erlc-stat span { color: var(--text); font-size: .9rem; }
+.erlc-command-form { grid-column: 1 / -1; }
+@media (max-width: 800px) {
+  .erlc-info-grid { grid-template-columns: 1fr; }
+  .operations-grid { grid-template-columns: 1fr; }
+}
 .manual-section h4, .manual-intro h4, .handbook-box h4 { margin: 0 0 14px; font-family: "Barlow Condensed", sans-serif; font-size: 2rem; line-height: 1; }
 .manual-section ul, .staff-panel ul { padding-left: 20px; color: var(--muted); }
 .manual-section li + li, .staff-panel li + li { margin-top: 8px; }

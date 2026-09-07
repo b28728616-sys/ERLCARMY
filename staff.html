@@ -86,6 +86,14 @@
                 </div>
 
                 <div class="sidebar-block">
+                  <p class="sidebar-label">Systems</p>
+                  <ul>
+                    <li><a href="#operations">Operations Desk</a></li>
+                    <li><a href="#erlcSection">ERLC Integration</a></li>
+                  </ul>
+                </div>
+
+                <div class="sidebar-block">
                   <p class="sidebar-label">Authority</p>
                   <ul>
                     <li>Executive Leadership</li>
@@ -140,24 +148,37 @@
                       <p class="eyebrow">Operations Control</p>
                       <h3>Shift & Moderation Desk</h3>
                     </div>
-                    <span id="quotaStatus" class="status-pill">0 / 2 hours</span>
+                    <span id="quotaStatus" class="status-pill">0 / 2h</span>
                   </div>
                   <div class="operations-grid">
-                    <div class="operation-block">
+                    <div class="operation-block shift-tracker">
                       <p class="dash-label">Weekly shift quota</p>
                       <div class="quota-track"><span id="quotaBar"></span></div>
-                      <p id="shiftStatus" class="staff-message">No active shift.</p>
+                      <div class="shift-status-row">
+                        <span id="shiftStatus" class="staff-message">No active shift.</span>
+                        <span id="shiftTimer" class="shift-timer">--:--:--</span>
+                      </div>
                       <div class="staff-input-row">
                         <button id="startShiftBtn" class="btn btn-primary" type="button">Start shift</button>
                         <button id="stopShiftBtn" class="btn btn-secondary" type="button" disabled>End shift</button>
                       </div>
+                      <p id="shiftMessage" class="staff-message"></p>
                     </div>
                     <form id="actionForm" class="operation-block">
                       <p class="dash-label">Moderation action</p>
-                      <label>Action<select name="type"><option value="bolo">BOLO</option><option value="warn">Warning</option><option value="kick">Kick</option><option value="ban">Ban</option></select></label>
+                      <label>Action<select id="actionType" name="type">
+                        <option value="warn">Warning</option>
+                        <option value="kick">Kick</option>
+                        <option value="bolo">BOLO</option>
+                        <option value="ban-bolo">Ban BOLO (Pending)</option>
+                        <option value="ban" data-admin="true">Ban (Admin+)</option>
+                      </select></label>
                       <label>Target<input name="target" required placeholder="Player username"></label>
                       <label>Reason<textarea name="reason" required rows="2" placeholder="Document the reason"></textarea></label>
-                      <label>Duration<input name="duration" placeholder="Optional duration"></label>
+                      <div id="warnSeverityRow" class="form-row-inline">
+                        <label>Severity<select name="severity"><option value="standard">Standard</option><option value="serious">Serious</option><option value="critical">Critical</option></select></label>
+                        <label>Duration<input name="duration" placeholder="Optional duration"></label>
+                      </div>
                       <button class="btn btn-primary" type="submit">Log action</button>
                       <p id="actionPermission" class="staff-message"></p>
                     </form>
@@ -166,14 +187,57 @@
                       <label>Target<input name="target" required placeholder="Staff username"></label>
                       <label>Reason<textarea name="reason" required rows="2" placeholder="Document the infraction"></textarea></label>
                       <label>Severity<select name="severity"><option value="standard">Standard</option><option value="serious">Serious</option><option value="critical">Critical</option></select></label>
+                      <label>Notes<textarea name="notes" rows="2" placeholder="Optional internal notes (not DM'd to user)"></textarea></label>
                       <button class="btn btn-primary" type="submit">Create infraction</button>
                       <p id="infractionPermission" class="staff-message"></p>
                     </form>
                   </div>
+
+                  <div class="shift-history-section">
+                    <p class="dash-label">Recent shifts</p>
+                    <div id="shiftHistory" class="shift-history-table"></div>
+                  </div>
+
+                  <div id="banBoloSection" class="ban-bolo-section hidden">
+                    <p class="dash-label">Pending Ban BOLOs</p>
+                    <div id="banBoloList" class="action-list"></div>
+                  </div>
+
                   <div class="operations-feeds">
                     <div><p class="dash-label">Recent game logs</p><div id="gameLogsFeed" class="activity-feed"></div></div>
                     <div><p class="dash-label">Recent actions</p><div id="actionsFeed" class="activity-feed"></div></div>
                     <div><p class="dash-label">Recent infractions</p><div id="infractionsFeed" class="activity-feed"></div></div>
+                  </div>
+                </section>
+
+                <section id="erlcSection" class="content-panel erlc-panel hidden">
+                  <div class="staff-portal-header">
+                    <div>
+                      <p class="eyebrow">ERLC Integration</p>
+                      <h3>Live Server & Remote Management</h3>
+                    </div>
+                    <span id="erlcStatus" class="status-pill">—</span>
+                  </div>
+
+                  <div class="erlc-dashboard">
+                    <div class="erlc-server-info">
+                      <div class="erlc-info-grid">
+                        <div class="erlc-stat"><span class="erlc-stat-label">Server name</span><span id="erlcServerName">—</span></div>
+                        <div class="erlc-stat"><span class="erlc-stat-label">Players</span><span id="erlcPlayers">—</span></div>
+                        <div class="erlc-stat"><span class="erlc-stat-label">Max players</span><span id="erlcMaxPlayers">—</span></div>
+                        <div class="erlc-stat"><span class="erlc-stat-label">Join key</span><span id="erlcJoinKey">—</span></div>
+                        <div class="erlc-stat"><span class="erlc-stat-label">Staff online</span><span id="erlcStaffCount">—</span></div>
+                        <div class="erlc-stat"><span class="erlc-stat-label">Queue</span><span id="erlcQueue">—</span></div>
+                      </div>
+                      <button id="refreshServerBtn" class="btn btn-sm btn-secondary" type="button">Refresh</button>
+                    </div>
+
+                    <form id="erlcCommandForm" class="operation-block erlc-command-form">
+                      <p class="dash-label">Remote command</p>
+                      <label>Command<input id="erlcCommand" name="command" required placeholder="e.g. :h Server is now in lockdown."></label>
+                      <button class="btn btn-primary" type="submit">Send to server</button>
+                      <p id="erlcCommandMessage" class="staff-message"></p>
+                    </form>
                   </div>
                 </section>
 
@@ -556,8 +620,27 @@
       const staffIdentity = document.getElementById('staffIdentity');
       const startShiftBtn = document.getElementById('startShiftBtn');
       const stopShiftBtn = document.getElementById('stopShiftBtn');
+      const shiftTimerEl = document.getElementById('shiftTimer');
+      const shiftMessageEl = document.getElementById('shiftMessage');
+      const shiftHistoryEl = document.getElementById('shiftHistory');
       const actionForm = document.getElementById('actionForm');
+      const actionTypeSelect = document.getElementById('actionType');
+      const warnSeverityRow = document.getElementById('warnSeverityRow');
       const infractionForm = document.getElementById('infractionForm');
+      const banBoloSection = document.getElementById('banBoloSection');
+      const banBoloList = document.getElementById('banBoloList');
+      const erlcSection = document.getElementById('erlcSection');
+      const erlcStatus = document.getElementById('erlcStatus');
+      const erlcServerName = document.getElementById('erlcServerName');
+      const erlcPlayers = document.getElementById('erlcPlayers');
+      const erlcMaxPlayers = document.getElementById('erlcMaxPlayers');
+      const erlcJoinKey = document.getElementById('erlcJoinKey');
+      const erlcStaffCount = document.getElementById('erlcStaffCount');
+      const erlcQueue = document.getElementById('erlcQueue');
+      const erlcCommandForm = document.getElementById('erlcCommandForm');
+      const erlcCommand = document.getElementById('erlcCommand');
+      const erlcCommandMessage = document.getElementById('erlcCommandMessage');
+      const refreshServerBtn = document.getElementById('refreshServerBtn');
 
       function escapeHtml(value) {
         return String(value ?? '').replace(/[&<>'"]/g, (character) => ({
@@ -566,8 +649,22 @@
       }
 
       function formatDuration(seconds) {
-        const minutes = Math.floor(Number(seconds || 0) / 60);
-        return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+        const total = Number(seconds || 0);
+        const hours = Math.floor(total / 3600);
+        const minutes = Math.floor((total % 3600) / 60);
+        const secs = Math.floor(total % 60);
+        if (hours > 0) return `${hours}h ${minutes}m ${secs}s`;
+        return `${minutes}m ${secs}s`;
+      }
+
+      function actionTypeClass(type) {
+        const t = (type || '').toLowerCase();
+        if (t.includes('ban') && t.includes('bolo')) return 'action-ban-bolo';
+        if (t === 'ban') return 'action-ban';
+        if (t === 'warn') return 'action-warn';
+        if (t === 'kick') return 'action-kick';
+        if (t === 'bolo') return 'action-bolo';
+        return 'action-default';
       }
 
       function renderActivity(elementId, entries, formatter) {
@@ -577,36 +674,175 @@
           : '<p class="empty-feed">No records yet.</p>';
       }
 
+      function severityClass(severity) {
+        const s = (severity || 'standard').toLowerCase();
+        if (s === 'critical') return 'severity-critical';
+        if (s === 'serious') return 'severity-serious';
+        return 'severity-standard';
+      }
+
+      function renderShiftHistory(shifts) {
+        if (!shifts || shifts.length === 0) {
+          shiftHistoryEl.innerHTML = '<p class="empty-feed">No shifts logged yet.</p>';
+          return;
+        }
+        const rows = shifts.map((s) => {
+          const started = new Date(s.startedAt);
+          const ended = s.endedAt ? new Date(s.endedAt) : null;
+          const duration = s.durationMinutes
+            ? `${Math.floor(s.durationMinutes / 60)}h ${s.durationMinutes % 60}m`
+            : ended
+              ? formatDuration((ended - started) / 1000)
+              : 'In progress';
+          const statusClass = ended ? 'shift-ended' : 'shift-active';
+          const statusLabel = ended ? 'Ended' : 'Active';
+          return `
+            <div class="shift-history-row ${statusClass}">
+              <span class="shift-name">${escapeHtml(s.staffName || 'Unknown')}</span>
+              <span class="shift-dates">${started.toLocaleDateString()} ${ended ? '→ ' + ended.toLocaleDateString() : ''}</span>
+              <span class="shift-duration">${duration}</span>
+              <span class="shift-status-badge">${statusLabel}</span>
+            </div>`;
+        });
+        shiftHistoryEl.innerHTML = `<div class="shift-history-list">${rows.join('')}</div>`;
+      }
+
+      let shiftTimerInterval = null;
+      function startShiftTimer(startedAt) {
+        if (shiftTimerInterval) clearInterval(shiftTimerInterval);
+        shiftTimerEl.classList.remove('hidden');
+        shiftTimerInterval = setInterval(() => {
+          const elapsed = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000);
+          const h = Math.floor(elapsed / 3600);
+          const m = Math.floor((elapsed % 3600) / 60);
+          const s = elapsed % 60;
+          shiftTimerEl.textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }, 1000);
+      }
+
+      function stopShiftTimer() {
+        if (shiftTimerInterval) clearInterval(shiftTimerInterval);
+        shiftTimerInterval = null;
+        shiftTimerEl.classList.add('hidden');
+        shiftTimerEl.textContent = '--:--:--';
+      }
+
+      function renderBanBoloList(bulos) {
+        if (!canCompleteBanBolo) return;
+        if (!bulos || bulos.length === 0) {
+          banBoloSection.classList.add('hidden');
+          return;
+        }
+        banBoloSection.classList.remove('hidden');
+        const items = bulos.map((bolo) => `
+          <div class="ban-bolo-item" data-id="${escapeHtml(bolo.id)}">
+            <div class="ban-bolo-info">
+              <strong class="${actionTypeClass(bolo.type)}">BAN BOLO</strong>
+              <span class="ban-bolo-target">${escapeHtml(bolo.target)}</span>
+              <span class="ban-bolo-reason">${escapeHtml(bolo.reason)}</span>
+              <small class="ban-bolo-actor">Filed by ${escapeHtml(bolo.actorUsername)} · ${new Date(bolo.createdAt).toLocaleString()}</small>
+            </div>
+            <button class="btn btn-sm btn-confirm" type="button" onclick="completeBanBolo('${escapeHtml(bolo.id)}')">Complete ban</button>
+          </div>
+        `).join('');
+        banBoloList.innerHTML = items;
+      }
+
       function renderOperations(data) {
         const quotaSeconds = data.weeklyQuotaSeconds || 7200;
         const usedSeconds = data.weeklyShiftSeconds || 0;
         const percentage = Math.min(100, Math.round((usedSeconds / quotaSeconds) * 100));
-        document.getElementById('quotaStatus').textContent = `${formatDuration(usedSeconds)} / 2h`;
+        document.getElementById('quotaStatus').textContent = `${formatDuration(usedSeconds)} / ${formatDuration(quotaSeconds)}`;
         document.getElementById('quotaBar').style.width = `${percentage}%`;
-        document.getElementById('shiftStatus').textContent = data.activeShift
-          ? `Active since ${new Date(data.activeShift.startedAt).toLocaleString()}`
-          : 'No active shift.';
-        startShiftBtn.disabled = Boolean(data.activeShift);
-        stopShiftBtn.disabled = !data.activeShift;
-        document.getElementById('actionPermission').textContent = data.canLogBan
-          ? 'Administrator+: bans, BOLOs, warnings, and kicks.'
-          : 'Staff: BOLOs, warnings, and kicks. Administrator+ required for bans.';
-        document.getElementById('infractionPermission').textContent = data.canLogInfraction
+        document.getElementById('quotaStatus').className = 'status-pill' + (percentage >= 100 ? ' success' : percentage >= 50 ? ' warning' : '');
+
+        if (data.activeShift) {
+          startShiftBtn.disabled = true;
+          stopShiftBtn.disabled = false;
+          document.getElementById('shiftStatus').textContent = `Active since ${new Date(data.activeShift.startedAt).toLocaleString()}`;
+          startShiftTimer(data.activeShift.startedAt);
+        } else {
+          startShiftBtn.disabled = false;
+          stopShiftBtn.disabled = true;
+          document.getElementById('shiftStatus').textContent = 'No active shift.';
+          stopShiftTimer();
+        }
+
+        const canLogBan = data.canLogBan || false;
+        const isInfraction = data.canLogInfraction || false;
+
+        document.getElementById('actionPermission').textContent = canLogBan
+          ? 'Administrator+: full moderation logging including bans.'
+          : 'Staff: BOLOs, warnings, kicks, and pending ban BOLOs. Administrator+ required for bans and completing BOLOs.';
+        document.getElementById('infractionPermission').textContent = isInfraction
           ? 'Management access enabled.'
           : 'Management+ access required.';
-        actionForm.querySelector('option[value="ban"]').disabled = !data.canLogBan;
-        infractionForm.querySelectorAll('input, textarea, select, button').forEach((control) => {
-          control.disabled = !data.canLogInfraction;
+
+        actionTypeSelect.querySelectorAll('option[data-admin="true"]').forEach((opt) => {
+          opt.disabled = !canLogBan;
         });
+        if (!canLogBan && actionTypeSelect.value.includes('ban') && !actionTypeSelect.value.includes('bolo')) {
+          actionTypeSelect.value = 'ban-bolo';
+        }
+        infractionForm.querySelectorAll('input, textarea, select, button').forEach((control) => {
+          control.disabled = !isInfraction;
+        });
+
+        renderShiftHistory(data.shifts || []);
+        renderBanBoloList(data.pendingBanBolos || []);
+
         renderActivity('gameLogsFeed', data.gameLogs, (entry) => `<div class="activity-item"><strong>${escapeHtml(entry.type.toUpperCase())}</strong><span>${escapeHtml(entry.player)}${entry.command ? ` · ${escapeHtml(entry.command)}` : ''}${entry.target ? ` → ${escapeHtml(entry.target)}` : ''}</span><small>${new Date(entry.createdAt).toLocaleString()}</small></div>`);
-        renderActivity('actionsFeed', data.actions, (entry) => `<div class="activity-item"><strong>${escapeHtml(entry.type.toUpperCase())}</strong><span>${escapeHtml(entry.target)} · ${escapeHtml(entry.reason)}</span><small>${escapeHtml(entry.actorUsername)} · ${new Date(entry.createdAt).toLocaleString()}</small></div>`);
-        renderActivity('infractionsFeed', data.infractions, (entry) => `<div class="activity-item"><strong>${escapeHtml(entry.severity.toUpperCase())}</strong><span>${escapeHtml(entry.target)} · ${escapeHtml(entry.reason)}</span><small>${escapeHtml(entry.actorUsername)} · ${new Date(entry.createdAt).toLocaleString()}</small></div>`);
+        renderActivity('actionsFeed', data.actions, (entry) => {
+          const statusBadge = entry.status === 'pending' ? '<span class="status-badge pending">Pending</span>' : '<span class="status-badge completed">Completed</span>';
+          return `<div class="activity-item"><strong class="${actionTypeClass(entry.type)}">${escapeHtml(entry.type.toUpperCase())}</strong><span>${escapeHtml(entry.target)} · ${escapeHtml(entry.reason)}</span><small>${escapeHtml(entry.actorUsername)} · ${new Date(entry.createdAt).toLocaleString()} ${statusBadge}</small></div>`;
+        });
+        renderActivity('infractionsFeed', data.infractions, (entry) => `<div class="activity-item"><strong class="${severityClass(entry.severity)}">${escapeHtml(entry.severity.toUpperCase())}</strong><span>${escapeHtml(entry.target)} · ${escapeHtml(entry.reason)}</span><small>${escapeHtml(entry.createdBy || entry.actorUsername)} · ${new Date(entry.createdAt).toLocaleString()}${entry.dmSent === false ? ' · ⚠️ DM failed' : ''}</small></div>`);
+
+        isMgmt = data.canLogInfraction || false;
+        erlcSection.classList.toggle('hidden', !isMgmt);
       }
+
+      var canCompleteBanBolo = false;
+      var isMgmt = false;
+
+      async function refreshErlcServer() {
+        if (!isMgmt) return;
+        erlcStatus.textContent = 'Refreshing…';
+        erlcStatus.className = 'status-pill';
+        try {
+          const res = await fetch('/api/erlc/server?players=true&staff=true&queue=true', { credentials: 'same-origin' });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Failed to fetch server info');
+
+          erlcServerName.textContent = data.Name || '—';
+          erlcPlayers.textContent = data.CurrentPlayers ?? '—';
+          erlcMaxPlayers.textContent = data.MaxPlayers ?? '—';
+          erlcJoinKey.textContent = data.JoinKey || '—';
+
+          const staffTotal = data.Staff
+            ? Object.keys(data.Staff.Admins || {}).length +
+              Object.keys(data.Staff.Mods || {}).length +
+              Object.keys(data.Staff.Helpers || {}).length
+            : 0;
+          erlcStaffCount.textContent = staffTotal;
+          erlcQueue.textContent = Array.isArray(data.Queue) ? data.Queue.length : '—';
+
+          erlcStatus.textContent = 'Online';
+          erlcStatus.className = 'status-pill success';
+        } catch (err) {
+          erlcStatus.textContent = 'Offline';
+          erlcStatus.className = 'status-pill';
+          erlcStatus.classList.add('warning');
+        }
+      }
+
 
       async function loadOperations() {
         const response = await fetch('/api/staff/operations', { credentials: 'same-origin' });
         if (!response.ok) throw new Error('Operations data unavailable');
-        renderOperations(await response.json());
+        const data = await response.json();
+        canCompleteBanBolo = data.canCompleteBanBolo || false;
+        renderOperations(data);
       }
 
       async function submitOperationsForm(form, endpoint) {
@@ -618,19 +854,120 @@
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Request failed');
         form.reset();
-        await loadOperations();
+        return data;
       }
 
+      async function completeBanBolo(id) {
+        try {
+          const response = await fetch(`/api/staff/actions/${id}/complete`, {
+            method: 'POST', credentials: 'same-origin'
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Failed to complete Ban BOLO');
+          await loadOperations();
+        } catch (error) {
+          shiftMessageEl.textContent = error.message;
+          shiftMessageEl.className = 'staff-message';
+        }
+      }
+
+      actionTypeSelect.addEventListener('change', () => {
+        const type = actionTypeSelect.value;
+        const warnFields = warnSeverityRow;
+        warnFields.style.display = (type === 'warn') ? 'flex' : 'none';
+      });
+
       startShiftBtn.addEventListener('click', async () => {
-        try { await fetch('/api/staff/shifts/start', { method: 'POST', credentials: 'same-origin' }); await loadOperations(); }
-        catch (error) { document.getElementById('shiftStatus').textContent = error.message; }
+        try {
+          const response = await fetch('/api/staff/shifts/start', { method: 'POST', credentials: 'same-origin' });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Failed to start shift');
+          shiftMessageEl.textContent = 'Shift started.';
+          shiftMessageEl.className = 'staff-message success';
+          await loadOperations();
+        } catch (error) {
+          shiftMessageEl.textContent = error.message;
+          shiftMessageEl.className = 'staff-message';
+        }
       });
+
       stopShiftBtn.addEventListener('click', async () => {
-        try { await fetch('/api/staff/shifts/stop', { method: 'POST', credentials: 'same-origin' }); await loadOperations(); }
-        catch (error) { document.getElementById('shiftStatus').textContent = error.message; }
+        try {
+          const response = await fetch('/api/staff/shifts/stop', { method: 'POST', credentials: 'same-origin' });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Failed to stop shift');
+          shiftMessageEl.textContent = `Shift ended (${data.durationMinutes} minutes).`;
+          shiftMessageEl.className = 'staff-message success';
+          await loadOperations();
+        } catch (error) {
+          shiftMessageEl.textContent = error.message;
+          shiftMessageEl.className = 'staff-message';
+        }
       });
-      actionForm.addEventListener('submit', async (event) => { event.preventDefault(); try { await submitOperationsForm(actionForm, '/api/staff/actions'); } catch (error) { document.getElementById('actionPermission').textContent = error.message; } });
-      infractionForm.addEventListener('submit', async (event) => { event.preventDefault(); try { await submitOperationsForm(infractionForm, '/api/staff/infractions'); } catch (error) { document.getElementById('infractionPermission').textContent = error.message; } });
+
+      actionForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        try {
+          await submitOperationsForm(actionForm, '/api/staff/actions');
+          actionTypeSelect.dispatchEvent(new Event('change'));
+        } catch (error) {
+          document.getElementById('actionPermission').textContent = error.message;
+        }
+      });
+
+      infractionForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        try {
+          const data = await submitOperationsForm(infractionForm, '/api/staff/infractions');
+          const msg = data.dmSent
+            ? 'Infraction created and user DM sent.'
+            : `Infraction created. ${data.dmError || 'User could not be DM\'d.'}`;
+          document.getElementById('infractionPermission').textContent = msg;
+        } catch (error) {
+          document.getElementById('infractionPermission').textContent = error.message;
+        }
+      });
+
+      actionTypeSelect.dispatchEvent(new Event('change'));
+
+      refreshServerBtn.addEventListener('click', refreshErlcServer);
+
+      erlcCommandForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const command = erlcCommand.value.trim();
+        if (!command) {
+          erlcCommandMessage.textContent = 'Command cannot be empty.';
+          erlcCommandMessage.className = 'staff-message';
+          return;
+        }
+        erlcCommandMessage.textContent = 'Sending command…';
+        erlcCommandMessage.className = 'staff-message';
+        try {
+          const res = await fetch('/api/erlc/command', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ command }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || data.message || 'Command failed');
+          erlcCommandMessage.textContent = `Sent: ${command}`;
+          erlcCommandMessage.className = 'staff-message success';
+          erlcCommand.value = '';
+          await refreshErlcServer();
+        } catch (error) {
+          erlcCommandMessage.textContent = error.message;
+          erlcCommandMessage.className = 'staff-message';
+        }
+      });
+
+      let autoRefreshInterval = null;
+      function startAutoRefresh() {
+        if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+        autoRefreshInterval = setInterval(() => {
+          loadOperations().catch(() => {});
+          if (isMgmt) refreshErlcServer().catch(() => {});
+        }, 30000);
+      }
 
       function showSignedOut(message) {
         staffPortal.classList.add('hidden');
@@ -816,6 +1153,7 @@
             staffIdentity.textContent = `${data.user.username || 'Staff member'} · ${roleLabel} · ${accessSummary}`;
             renderRoleDashboard(roleKey);
             await loadOperations();
+            startAutoRefresh();
             window.location.hash = '#command';
             return;
           }

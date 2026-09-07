@@ -2,13 +2,16 @@ const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
 const axios = require('axios');
-const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
+const fs = require('fs');
 const dotenv = require('dotenv');
 const DiscordStrategy = require('passport-discord').Strategy;
 
 dotenv.config();
+
+const OPERATIONS_FILE = path.join(__dirname, 'operations.json');
+const ERLC_API_BASE = 'https://api.erlc.gg';
+const ERLC_SERVER_KEY = process.env.ERLC_SERVER_KEY;
 
 const port = Number(process.env.PORT) || 3000;
 function normalizeBaseUrl(value) {
@@ -21,65 +24,12 @@ const baseUrl = normalizeBaseUrl(process.env.BASE_URL);
 const guildId = process.env.DISCORD_GUILD_ID;
 const staffRoleMap = parseStaffRoleMap(process.env.DISCORD_STAFF_ROLE_MAP);
 const legacyStaffRoleIds = parseStaffRoleIds(process.env.DISCORD_STAFF_ROLE_IDS);
-const discordCache = {
-  roles: { value: [], expiresAt: 0 },
-  uniqueHoldings: { value: {}, expiresAt: 0 },
-};
-const usedDiscordCallbackCodes = new Map();
-let discordTokenCooldownUntil = 0;
-let discordRateLimitStreak = 0;
-const operationsStorePath = path.join(__dirname, 'data', 'operations.json');
-
-function loadOperationsStore() {
-  try {
-    return JSON.parse(fs.readFileSync(operationsStorePath, 'utf8'));
-  } catch (error) {
-    return { shifts: [], gameLogs: [], actions: [], infractions: [] };
-  }
-}
-
-const operationsStore = loadOperationsStore();
-
-function saveOperationsStore() {
-  fs.mkdirSync(path.dirname(operationsStorePath), { recursive: true });
-  fs.writeFileSync(operationsStorePath, JSON.stringify(operationsStore, null, 2));
-}
-
-function getWeekStart(date = new Date()) {
-  const value = new Date(date);
-  const day = value.getUTCDay();
-  const offset = day === 0 ? -6 : 1 - day;
-  value.setUTCDate(value.getUTCDate() + offset);
-  value.setUTCHours(0, 0, 0, 0);
-  return value.toISOString();
-}
-
-function getWeeklyShiftSeconds(userId) {
-  const weekStart = getWeekStart();
-  return operationsStore.shifts
-    .filter((shift) => shift.userId === userId && shift.startedAt >= weekStart)
-    .reduce((total, shift) => total + (shift.durationSeconds || 0), 0);
-}
-
-function canUseAdministration(user) {
-  return Number(user?.rankLevel || 0) >= 6;
-}
-
-function canUseManagement(user) {
-  return Number(user?.rankLevel || 0) >= 10;
-}
-
-function requireStaffApi(req, res, next) {
-  if (!req.isAuthenticated() || !req.user?.isStaff) {
-    return res.status(401).json({ error: 'Staff authentication required.' });
-  }
-  next();
-}
 
 const isDiscordConfigured = Boolean(
   process.env.DISCORD_CLIENT_ID
   && process.env.DISCORD_CLIENT_SECRET
   && process.env.DISCORD_GUILD_ID
+  && process.env.DISCORD_BOT_TOKEN
   && baseUrl
 );
 
@@ -328,54 +278,12 @@ function getDiscordFailureReason(error) {
   return 'discord-callback';
 }
 
-function isDiscordRateLimitError(error) {
-  const errorMessage = String(error?.message || '').toLowerCase();
-  const errorDetails = JSON.stringify(getDiscordErrorDetails(error)).toLowerCase();
-  return errorMessage.includes('1015')
-    || errorDetails.includes('1015')
-    || errorMessage.includes('rate limit');
-}
-
 function getDiscordErrorDetails(error) {
   return error?.oauthError?.data
     || error?.oauthError?.message
     || error?.response?.data
     || error?.message
     || 'unknown-discord-error';
-}
-
-function getDiscordRetryAfter(error) {
-  const retryAfter = error?.response?.data?.retry_after
-    || error?.response?.headers?.['retry-after'];
-  const seconds = Number(retryAfter);
-  return Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds) : 30;
-}
-
-function addDiscordOAuthTimeout(strategy, timeoutMs = 15000) {
-  const oauthClient = strategy._oauth2;
-  const request = oauthClient._request.bind(oauthClient);
-
-  oauthClient._request = (method, url, headers, postBody, accessToken, callback) => {
-    let settled = false;
-    const timeout = setTimeout(() => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      const error = new Error('Discord OAuth request timed out');
-      error.code = 'DISCORD_OAUTH_TIMEOUT';
-      callback(error);
-    }, timeoutMs);
-
-    request(method, url, headers, postBody, accessToken, (error, result, response) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      clearTimeout(timeout);
-      callback(error, result, response);
-    });
-  };
 }
 
 function resolveRankDetails(slug = '') {
@@ -455,10 +363,6 @@ async function getGuildRoleMembershipSummary(guildIdValue, botToken, roleMapValu
     return {};
   }
 
-  if (discordCache.uniqueHoldings.expiresAt > Date.now()) {
-    return discordCache.uniqueHoldings.value;
-  }
-
   const uniqueHoldings = {};
   for (const entry of roleMapValue) {
     const slug = normalizeRankSlug(entry.slug);
@@ -477,7 +381,6 @@ async function getGuildRoleMembershipSummary(guildIdValue, botToken, roleMapValu
     const response = await axios
       .get(`https://discord.com/api/guilds/${guildIdValue}/members${query}`, {
         headers: { Authorization: `Bot ${botToken}` },
-        timeout: 10000,
       })
       .catch(() => ({ data: [] }));
 
@@ -503,32 +406,7 @@ async function getGuildRoleMembershipSummary(guildIdValue, botToken, roleMapValu
     }
   }
 
-  discordCache.uniqueHoldings = {
-    value: uniqueHoldings,
-    expiresAt: Date.now() + 5 * 60 * 1000,
-  };
   return uniqueHoldings;
-}
-
-async function getGuildRoles(guildIdValue, botToken) {
-  if (!guildIdValue || !botToken) {
-    return [];
-  }
-
-  if (discordCache.roles.expiresAt > Date.now()) {
-    return discordCache.roles.value;
-  }
-
-  const response = await axios.get(`https://discord.com/api/guilds/${guildIdValue}/roles`, {
-    headers: { Authorization: `Bot ${botToken}` },
-    timeout: 10000,
-  }).catch(() => ({ data: [] }));
-  const roles = Array.isArray(response.data) ? response.data : [];
-  discordCache.roles = {
-    value: roles,
-    expiresAt: Date.now() + 5 * 60 * 1000,
-  };
-  return roles;
 }
 
 function getUniqueRankConflict(slug, uniqueHolderSummary = {}) {
@@ -542,12 +420,221 @@ function getUniqueRankConflict(slug, uniqueHolderSummary = {}) {
   return Number(uniqueHolderSummary[normalized] || 0) > 1;
 }
 
+function loadOperations() {
+  try {
+    const raw = fs.readFileSync(OPERATIONS_FILE, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return { shifts: [], actions: [], infractions: [], gameLogs: parsed };
+    }
+    return {
+      shifts: Array.isArray(parsed.shifts) ? parsed.shifts : [],
+      actions: Array.isArray(parsed.actions) ? parsed.actions : [],
+      infractions: Array.isArray(parsed.infractions) ? parsed.infractions : [],
+      gameLogs: Array.isArray(parsed.gameLogs) ? parsed.gameLogs : [],
+    };
+  } catch (err) {
+    return { shifts: [], actions: [], infractions: [], gameLogs: [] };
+  }
+}
+
+function saveOperations(ops) {
+  const data = {
+    shifts: ops.shifts || [],
+    actions: ops.actions || [],
+    infractions: ops.infractions || [],
+    gameLogs: ops.gameLogs || [],
+  };
+  fs.writeFileSync(OPERATIONS_FILE, JSON.stringify(data, null, 2));
+}
+
+function isManagementUser(user) {
+  return Boolean(
+    user &&
+      user.isStaff &&
+      user.permissions &&
+      user.permissions.canViewEntireCommandBoard === true
+  );
+}
+
+function isStaffUser(user) {
+  return Boolean(user && user.isStaff);
+}
+
+function getWeekNumber(d) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+}
+
+function getWeekKey(d = new Date()) {
+  const date = new Date(d);
+  const year = date.getFullYear();
+  const week = getWeekNumber(date);
+  return `${year}-${String(week).padStart(2, '0')}`;
+}
+
+function getWeeklyShiftMinutes(ops, staffId, weekKey) {
+  const shifts = ops.shifts || [];
+  const weekly = shifts.filter((s) => s.staffId === staffId && s.weekOf === weekKey);
+  return weekly.reduce((total, s) => total + (s.durationMinutes || 0), 0);
+}
+
+async function findDiscordUserByUsername(username) {
+  if (!guildId || !process.env.DISCORD_BOT_TOKEN || !username) return null;
+
+  const searchTerm = username.toLowerCase().trim();
+  let after = null;
+
+  while (true) {
+    const query = after ? `?limit=1000&after=${after}` : '?limit=1000';
+    const response = await axios
+      .get(`https://discord.com/api/guilds/${guildId}/members${query}`, {
+        headers: { Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}` },
+      })
+      .catch(() => ({ data: [] }));
+
+    const members = Array.isArray(response.data) ? response.data : [];
+
+    for (const member of members) {
+      if (!member.user) continue;
+      const discordTag =
+        member.user.discriminator && member.user.discriminator !== '0'
+          ? `${member.user.username}#${member.user.discriminator}`
+          : member.user.username;
+      const globalName = member.user.global_name || '';
+      if (
+        member.user.username.toLowerCase() === searchTerm ||
+        discordTag.toLowerCase() === searchTerm ||
+        globalName.toLowerCase() === searchTerm
+      ) {
+        return member.user.id;
+      }
+    }
+
+    if (members.length < 1000) break;
+    after = members[members.length - 1]?.user?.id;
+    if (!after) break;
+  }
+
+  return null;
+}
+
+function formatInfractionDM(infraction) {
+  const severityLabel = (infraction.severity || 'standard').toUpperCase();
+  const createdAt = new Date(infraction.createdAt).toLocaleString();
+  const lines = [
+    'Hello, you have received a management infraction on ERLCARMY.',
+    '',
+    `**Reason:** ${infraction.reason}`,
+    `**Severity:** ${severityLabel}`,
+    `**Issued by:** ${infraction.createdBy || 'Management'}`,
+    `**Date:** ${createdAt}`,
+  ];
+  if (infraction.notes) {
+    lines.push('', `**Notes:** ${infraction.notes}`);
+  }
+  lines.push('', 'If you have questions or wish to appeal, please contact the management team.');
+  return lines.join('\n');
+}
+
+async function dmUserInfraction(userId, infraction) {
+  if (!userId || !process.env.DISCORD_BOT_TOKEN) return false;
+
+  try {
+    const dmChannel = await axios
+      .post(
+        'https://discord.com/api/v10/users/@me/channels',
+        { recipient_id: userId },
+        {
+          headers: {
+            Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+      .catch(() => null);
+
+    const channelId = dmChannel?.data?.id;
+    if (!channelId) {
+      console.error('Failed to create DM channel for user:', userId);
+      return false;
+    }
+
+    const message = formatInfractionDM(infraction);
+    await axios.post(
+      `https://discord.com/api/v10/channels/${channelId}/messages`,
+      { content: message },
+      {
+        headers: {
+          Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    return true;
+  } catch (err) {
+    console.error('Failed to DM user:', err.response?.data || err.message);
+    return false;
+  }
+}
+
+async function erlcRequest(path, options = {}) {
+  if (!ERLC_SERVER_KEY) {
+    throw new Error('ERLC server key is not configured');
+  }
+
+  const response = await axios({
+    url: `${ERLC_API_BASE}${path}`,
+    headers: {
+      'server-key': ERLC_SERVER_KEY,
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    },
+    ...options,
+  });
+
+  return response.data;
+}
+
+async function fetchErlcServer(queryParams = {}) {
+  const query = new URLSearchParams();
+  const paramMap = {
+    players: 'Players',
+    staff: 'Staff',
+    killLogs: 'KillLogs',
+    commandLogs: 'CommandLogs',
+    joinLogs: 'JoinLogs',
+    queue: 'Queue',
+    modCalls: 'ModCalls',
+    emergencyCalls: 'EmergencyCalls',
+    vehicles: 'Vehicles',
+  };
+
+  for (const [key, erlcKey] of Object.entries(paramMap)) {
+    if (queryParams[key]) query.append(erlcKey, 'true');
+  }
+
+  const qs = query.toString();
+  return await erlcRequest(`/v2/server${qs ? `?${qs}` : ''}`);
+}
+
+async function runErlcCommand(command) {
+  return await erlcRequest('/v2/server/command', {
+    method: 'POST',
+    data: { command },
+  });
+}
+
 function createApp() {
   const app = express();
   app.set('trust proxy', 1);
 
   if (!isDiscordConfigured) {
-    console.warn('Discord OAuth is not fully configured yet. Set BASE_URL, DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, and DISCORD_GUILD_ID in the environment.');
+    console.warn('Discord OAuth is not fully configured yet. Set BASE_URL, DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, DISCORD_GUILD_ID, and DISCORD_BOT_TOKEN in the environment.');
   }
 
   app.use(express.urlencoded({ extended: true }));
@@ -572,14 +659,14 @@ function createApp() {
   passport.serializeUser((user, done) => done(null, user));
   passport.deserializeUser((user, done) => done(null, user));
 
-  let discordStrategy = null;
   if (isDiscordConfigured) {
-    discordStrategy = new DiscordStrategy(
+    passport.use(
+      new DiscordStrategy(
         {
           clientID: process.env.DISCORD_CLIENT_ID,
           clientSecret: process.env.DISCORD_CLIENT_SECRET,
           callbackURL: `${baseUrl}/auth/discord/callback`,
-          scope: ['identify', 'guilds.members.read'],
+          scope: ['identify'],
         },
         async (accessToken, refreshToken, profile, done) => {
           try {
@@ -589,33 +676,19 @@ function createApp() {
             let staffRoleSlugs = [];
             let accessDetails = { ...DEFAULT_STAFF_ACCESS };
 
-            if (guildId) {
+            if (guildId && process.env.DISCORD_BOT_TOKEN) {
               let memberError = null;
-              let memberResponse = await axios.get(
-                `https://discord.com/api/users/@me/guilds/${guildId}/member`,
+              const memberResponse = await axios.get(
+                `https://discord.com/api/guilds/${guildId}/members/${profile.id}`,
                 {
-                  headers: { Authorization: `Bearer ${accessToken}` },
-                  timeout: 10000,
+                  headers: {
+                    Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+                  },
                 }
               ).catch((error) => {
                 memberError = error;
                 return null;
               });
-
-              if (!memberResponse && memberError?.response?.status !== 429 && process.env.DISCORD_BOT_TOKEN) {
-                memberResponse = await axios.get(
-                  `https://discord.com/api/guilds/${guildId}/members/${profile.id}`,
-                  {
-                    headers: {
-                      Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
-                    },
-                    timeout: 10000,
-                  }
-                ).catch((error) => {
-                  memberError = error;
-                  return null;
-                });
-              }
 
               if (memberError) {
                 console.error('Discord member verification failed:', {
@@ -627,23 +700,23 @@ function createApp() {
 
               guildMembership = Boolean(memberResponse?.data);
 
-              let discordRoles = [];
-              let roleAccess = matchStaffRoles(
+              const guildRolesResponse = process.env.DISCORD_BOT_TOKEN
+                ? await axios.get(`https://discord.com/api/guilds/${guildId}/roles`, {
+                    headers: {
+                      Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+                    },
+                  }).catch(() => ({ data: [] }))
+                : { data: [] };
+              const discordRoles = Array.isArray(guildRolesResponse.data)
+                ? guildRolesResponse.data
+                : [];
+
+              const roleAccess = matchStaffRoles(
                 memberResponse?.data?.roles || [],
                 staffRoleMap,
                 legacyStaffRoleIds,
                 discordRoles
               );
-
-              if (!roleAccess.isStaff && legacyStaffRoleIds.length) {
-                discordRoles = await getGuildRoles(guildId, process.env.DISCORD_BOT_TOKEN);
-                roleAccess = matchStaffRoles(
-                  memberResponse?.data?.roles || [],
-                  staffRoleMap,
-                  legacyStaffRoleIds,
-                  discordRoles
-                );
-              }
 
               isStaff = roleAccess.isStaff;
               staffRoleSlug = roleAccess.staffRoleSlug;
@@ -657,25 +730,23 @@ function createApp() {
                   discordRoles
                 );
 
+                const uniqueRoleSummary = await getGuildRoleMembershipSummary(
+                  guildId,
+                  process.env.DISCORD_BOT_TOKEN,
+                  staffRoleMap
+                );
+
                 const rankDetails = highestRank || resolveRankDetails(staffRoleSlug);
                 accessDetails = { ...DEFAULT_STAFF_ACCESS, ...rankDetails.permissions };
 
-                if (process.env.DISCORD_ENFORCE_UNIQUE_RANKS === 'true') {
-                  const uniqueRoleSummary = await getGuildRoleMembershipSummary(
-                    guildId,
-                    process.env.DISCORD_BOT_TOKEN,
-                    staffRoleMap
-                  );
-
-                  if (getUniqueRankConflict(staffRoleSlug, uniqueRoleSummary)) {
-                    isStaff = false;
-                    staffRoleSlug = null;
-                    staffRoleSlugs = [];
-                    accessDetails = {
-                      ...DEFAULT_STAFF_ACCESS,
-                      accessName: 'Rank conflict detected',
-                    };
-                  }
+                if (getUniqueRankConflict(staffRoleSlug, uniqueRoleSummary)) {
+                  isStaff = false;
+                  staffRoleSlug = null;
+                  staffRoleSlugs = [];
+                  accessDetails = {
+                    ...DEFAULT_STAFF_ACCESS,
+                    accessName: 'Rank conflict detected',
+                  };
                 }
               }
             }
@@ -700,9 +771,8 @@ function createApp() {
             return done(error, null);
           }
         }
-      );
-    addDiscordOAuthTimeout(discordStrategy);
-    passport.use(discordStrategy);
+      )
+    );
   }
 
   function requireStaffAccess(req, res, next) {
@@ -731,6 +801,22 @@ function createApp() {
     next();
   }
 
+  function requireManagement(req, res, next) {
+    if (!req.isAuthenticated() || !req.user || !req.user.isStaff) {
+      return res.status(403).json({ error: 'Staff access required' });
+    }
+    if (!isManagementUser(req.user)) {
+      return res.status(403).json({ error: 'Management access required' });
+    }
+    next();
+  }
+
+  function requireStaffApi(req, res, next) {
+    if (!req.isAuthenticated() || !req.user || !req.user.isStaff) {
+      return res.status(403).json({ error: 'Staff access required' });
+    }
+    next();
+  }
   app.get('/auth/discord', (req, res, next) => {
     if (!isDiscordConfigured) {
       return res.status(500).send(`
@@ -745,11 +831,11 @@ function createApp() {
                 <li>DISCORD_CLIENT_ID</li>
                 <li>DISCORD_CLIENT_SECRET</li>
                 <li>DISCORD_GUILD_ID</li>
+                <li>DISCORD_BOT_TOKEN</li>
                 <li>BASE_URL</li>
               </ul>
-              <p><code>DISCORD_BOT_TOKEN</code> is optional for sign-in, but enables the fallback member lookup and unique-rank checks.</p>
               <p>Redirect URL must be set in Discord Developer Portal:</p>
-              <code style="display:block;padding:12px;border-radius:8px;background:#0b1320;white-space:pre-wrap;">${baseUrl}/auth/discord/client-callback</code>
+              <code style="display:block;padding:12px;border-radius:8px;background:#0b1320;white-space:pre-wrap;">${baseUrl}/auth/discord/callback</code>
               <p><a href="/" style="color:#5ea7ff;">Return to the public site</a></p>
             </div>
           </body>
@@ -759,178 +845,29 @@ function createApp() {
 
     const redirectTo = typeof req.query.redirect === 'string' ? req.query.redirect : '/staff';
     req.session.redirectTo = redirectTo;
-    const state = crypto.randomBytes(24).toString('hex');
-    req.session.discordOAuthState = state;
-    const callbackUrl = `${baseUrl}/auth/discord/client-callback`;
-    const authorizationUrl = new URL('https://discord.com/oauth2/authorize');
-    authorizationUrl.search = new URLSearchParams({
-      client_id: process.env.DISCORD_CLIENT_ID,
-      redirect_uri: callbackUrl,
-      response_type: 'token',
-      scope: 'identify guilds.members.read',
-      state,
-    }).toString();
-    res.redirect(authorizationUrl.toString());
-  });
-
-  app.get('/auth/discord/client-callback', (req, res) => {
-    res.type('html').send(`
-      <!doctype html>
-      <html lang="en">
-        <head><meta charset="utf-8"><title>Verifying Discord</title></head>
-        <body style="font-family:Arial,sans-serif;background:#0c1220;color:#edf3ff;padding:40px;">
-          <p id="message">Verifying your Discord account...</p>
-          <script>
-            const params = new URLSearchParams(window.location.hash.slice(1));
-            const accessToken = params.get('access_token');
-            const state = params.get('state');
-            const error = params.get('error');
-            const message = document.getElementById('message');
-            if (error || !accessToken || !state) {
-              message.textContent = 'Discord authorization was cancelled or did not return a token.';
-            } else {
-              fetch('/api/auth/discord/verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'same-origin',
-                body: JSON.stringify({ accessToken, state })
-              }).then((response) => response.json()).then((result) => {
-                window.location.replace(result.redirect || '/staff?auth=failed&reason=discord-callback');
-              }).catch(() => {
-                message.textContent = 'Verification failed. Please return to the staff portal and try again.';
-              });
-            }
-          </script>
-        </body>
-      </html>
-    `);
-  });
-
-  app.post('/api/auth/discord/verify', async (req, res) => {
-    const { accessToken, state } = req.body || {};
-    if (!accessToken || !state || state !== req.session.discordOAuthState) {
-      return res.status(400).json({ redirect: '/staff?auth=failed&reason=discord-state' });
-    }
-    delete req.session.discordOAuthState;
-
-    try {
-      const profileResponse = await axios.get('https://discord.com/api/users/@me', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        timeout: 10000,
-      });
-      return discordStrategy._verify(accessToken, null, profileResponse.data, (error, user) => {
-        if (error) {
-          console.error('Discord profile verification failed:', getDiscordErrorDetails(error));
-          return res.json({ redirect: `/staff?auth=failed&reason=${getDiscordFailureReason(error)}` });
-        }
-        if (!user) {
-          return res.json({ redirect: '/staff?auth=failed&reason=discord-access' });
-        }
-        req.logIn(user, (loginError) => {
-          if (loginError) {
-            console.error('Discord session failed:', loginError.message);
-            return res.json({ redirect: '/staff?auth=failed&reason=session' });
-          }
-          return res.json({ redirect: req.session.redirectTo || '/staff' });
-        });
-      });
-    } catch (error) {
-      console.error('Discord profile request failed:', getDiscordErrorDetails(error));
-      return res.json({ redirect: `/staff?auth=failed&reason=${getDiscordFailureReason(error)}` });
-    }
+    passport.authenticate('discord')(req, res, next);
   });
 
   app.get('/auth/discord/callback', (req, res, next) => {
-    if (!discordStrategy || !req.query.code) {
-      return res.redirect('/staff?auth=failed&reason=discord-callback');
-    }
-
-    if (discordTokenCooldownUntil > Date.now()) {
-      const retryAfter = Math.ceil((discordTokenCooldownUntil - Date.now()) / 1000);
-      return res.redirect(`/staff?auth=failed&reason=discord-rate-limited&retryAfter=${retryAfter}`);
-    }
-
-    const callbackCode = String(req.query.code);
-    const previousUse = usedDiscordCallbackCodes.get(callbackCode);
-    if (previousUse && previousUse > Date.now() - 10 * 60 * 1000) {
-      return res.redirect('/staff?auth=failed&reason=discord-code-used');
-    }
-    usedDiscordCallbackCodes.set(callbackCode, Date.now());
-    for (const [code, usedAt] of usedDiscordCallbackCodes) {
-      if (usedAt < Date.now() - 10 * 60 * 1000) {
-        usedDiscordCallbackCodes.delete(code);
-      }
-    }
-
-    const callbackTimeout = setTimeout(() => {
-      console.error('Discord callback timed out before authentication completed');
-      if (!res.headersSent) {
-        res.redirect('/staff?auth=failed&reason=discord-timeout');
-      }
-    }, 20000);
-
-    const finish = (redirect) => {
-      clearTimeout(callbackTimeout);
-      if (!res.headersSent) {
-        res.redirect(redirect);
-      }
-    };
-
-    axios.post('https://discord.com/api/oauth2/token', new URLSearchParams({
-      client_id: process.env.DISCORD_CLIENT_ID,
-      client_secret: process.env.DISCORD_CLIENT_SECRET,
-      grant_type: 'authorization_code',
-      code: callbackCode,
-      redirect_uri: `${baseUrl}/auth/discord/callback`,
-    }).toString(), {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      timeout: 10000,
-    }).then(async (tokenResponse) => {
-      const accessToken = tokenResponse.data?.access_token;
-      if (!accessToken) {
-        throw new Error('Discord did not return an access token');
+    passport.authenticate('discord', (error, user) => {
+      if (error) {
+        console.error('Discord callback failed:', getDiscordErrorDetails(error));
+        return res.redirect(`/staff?auth=failed&reason=${getDiscordFailureReason(error)}`);
       }
 
-      discordRateLimitStreak = 0;
-      discordTokenCooldownUntil = 0;
+      if (!user) {
+        return res.redirect('/staff?auth=failed&reason=discord-access');
+      }
 
-      const profileResponse = await axios.get('https://discord.com/api/users/@me', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        timeout: 10000,
-      });
-      return { accessToken, profile: profileResponse.data };
-    }).then(({ accessToken, profile }) => {
-      discordStrategy._verify(accessToken, null, profile, (error, user) => {
-        if (error) {
-          console.error('Discord profile verification failed:', getDiscordErrorDetails(error));
-          return finish(`/staff?auth=failed&reason=${getDiscordFailureReason(error)}`);
-        }
-        if (!user) {
-          return finish('/staff?auth=failed&reason=discord-access');
+      return req.logIn(user, (loginError) => {
+        if (loginError) {
+          console.error('Discord session failed:', loginError.message);
+          return res.redirect('/staff?auth=failed&reason=session');
         }
 
-        req.logIn(user, (loginError) => {
-          if (loginError) {
-            console.error('Discord session failed:', loginError.message);
-            return finish('/staff?auth=failed&reason=session');
-          }
-          return finish(req.session.redirectTo || '/staff');
-        });
+        return res.redirect(req.session.redirectTo || '/staff');
       });
-    }).catch((error) => {
-      console.error('Discord token exchange failed:', getDiscordErrorDetails(error));
-      if (error?.response?.status === 429 || isDiscordRateLimitError(error)) {
-        const providerRetryAfter = getDiscordRetryAfter(error);
-        discordRateLimitStreak = Math.min(discordRateLimitStreak + 1, 4);
-        const retryAfter = Math.max(
-          providerRetryAfter,
-          30 * (2 ** (discordRateLimitStreak - 1))
-        );
-        discordTokenCooldownUntil = Date.now() + retryAfter * 1000;
-        return finish(`/staff?auth=failed&reason=discord-rate-limited&retryAfter=${retryAfter}`);
-      }
-      finish(`/staff?auth=failed&reason=${getDiscordFailureReason(error)}`);
-    });
+    })(req, res, next);
   });
 
   app.get('/logout', (req, res, next) => {
@@ -955,137 +892,285 @@ function createApp() {
     });
   });
 
+  app.get('/health', (req, res) => {
+    res.json({ status: 'ok' });
+  });
+
   app.get('/api/staff/operations', requireStaffApi, (req, res) => {
-    const activeShift = operationsStore.shifts.find(
-      (shift) => shift.userId === req.user.id && !shift.endedAt
-    );
-    return res.json({
-      weeklyQuotaSeconds: 2 * 60 * 60,
-      weeklyShiftSeconds: getWeeklyShiftSeconds(req.user.id)
-        + (activeShift ? Math.floor((Date.now() - Date.parse(activeShift.startedAt)) / 1000) : 0),
+    const ops = loadOperations();
+    const weekKey = getWeekKey();
+
+    const isMgmt = isManagementUser(req.user);
+    const isAdmin = Boolean(req.user.permissions?.canManageAdministrativeActions);
+
+    let infractions = ops.infractions || [];
+    if (!isMgmt) {
+      infractions = infractions.filter((i) => i.playerId === req.user.id);
+    }
+
+    let gameLogs = ops.gameLogs || [];
+    if (!isMgmt) {
+      gameLogs = gameLogs.filter((log) => log.type !== 'ban');
+    }
+
+    const activeShift = (ops.shifts || [])
+      .filter((s) => s.staffId === req.user.id && !s.endedAt)
+      .sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt))[0] || null;
+
+    const weeklyMinutes = getWeeklyShiftMinutes(ops, req.user.id, weekKey);
+    const recentShifts = (ops.shifts || [])
+      .filter((s) => s.staffId === req.user.id)
+      .sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt))
+      .slice(0, 10);
+
+    const pendingBanBolos = (ops.actions || [])
+      .filter((a) => a.type === 'ban-bolo' && a.status === 'pending');
+
+    res.json({
+      infractions,
+      gameLogs,
+      actions: ops.actions || [],
+      shifts: recentShifts,
       activeShift,
-      canLogBan: canUseAdministration(req.user),
-      canLogInfraction: canUseManagement(req.user),
-      gameLogs: operationsStore.gameLogs.slice(-100).reverse(),
-      actions: operationsStore.actions.slice(-100).reverse(),
-      infractions: operationsStore.infractions.slice(-100).reverse(),
+      pendingBanBolos,
+      weeklyQuotaSeconds: 7200,
+      weeklyShiftSeconds: weeklyMinutes * 60,
+      canLogBan: isAdmin,
+      canCompleteBanBolo: isAdmin,
+      canLogInfraction: isMgmt,
     });
   });
 
   app.post('/api/staff/shifts/start', requireStaffApi, (req, res) => {
-    const activeShift = operationsStore.shifts.find(
-      (shift) => shift.userId === req.user.id && !shift.endedAt
+    const ops = loadOperations();
+    ops.shifts = ops.shifts || [];
+
+    const existingActive = ops.shifts.find(
+      (s) => s.staffId === req.user.id && !s.endedAt
     );
-    if (activeShift) {
-      return res.status(409).json({ error: 'You already have an active shift.' });
+    if (existingActive) {
+      return res.status(400).json({ error: 'You already have an active shift' });
     }
-    const shift = {
-      id: crypto.randomUUID(),
-      userId: req.user.id,
-      username: req.user.username,
-      startedAt: new Date().toISOString(),
+
+    const now = new Date();
+    const weekKey = getWeekKey(now);
+
+    const newShift = {
+      id: `shift-${Date.now()}`,
+      staffId: req.user.id,
+      staffName: req.user.username,
+      startedAt: now.toISOString(),
       endedAt: null,
-      durationSeconds: 0,
+      durationMinutes: 0,
+      weekOf: weekKey,
     };
-    operationsStore.shifts.push(shift);
-    saveOperationsStore();
-    return res.status(201).json(shift);
+
+    ops.shifts.push(newShift);
+    saveOperations(ops);
+
+    res.json({ success: true, shift: newShift });
   });
 
   app.post('/api/staff/shifts/stop', requireStaffApi, (req, res) => {
-    const shift = operationsStore.shifts.find(
-      (entry) => entry.userId === req.user.id && !entry.endedAt
-    );
-    if (!shift) {
-      return res.status(409).json({ error: 'You do not have an active shift.' });
+    const ops = loadOperations();
+    ops.shifts = ops.shifts || [];
+
+    const activeShift = ops.shifts
+      .filter((s) => s.staffId === req.user.id && !s.endedAt)
+      .sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt))[0];
+
+    if (!activeShift) {
+      return res.status(400).json({ error: 'No active shift to end' });
     }
-    shift.endedAt = new Date().toISOString();
-    shift.durationSeconds = Math.max(0, Math.floor((Date.parse(shift.endedAt) - Date.parse(shift.startedAt)) / 1000));
-    saveOperationsStore();
-    return res.json(shift);
+
+    const now = new Date();
+    const started = new Date(activeShift.startedAt);
+    const durationMinutes = Math.max(1, Math.round((now - started) / 60000));
+
+    activeShift.endedAt = now.toISOString();
+    activeShift.durationMinutes = durationMinutes;
+
+    saveOperations(ops);
+
+    res.json({ success: true, durationMinutes });
   });
 
   app.post('/api/staff/actions', requireStaffApi, (req, res) => {
-    const type = String(req.body?.type || '').toLowerCase();
-    const allowedTypes = new Set(['ban', 'bolo', 'warn', 'kick']);
-    if (!allowedTypes.has(type)) {
-      return res.status(400).json({ error: 'Action must be ban, bolo, warn, or kick.' });
+    const { type, target, reason, severity, duration } = req.body;
+
+    if (!type || !target || !reason) {
+      return res.status(400).json({ error: 'Type, target, and reason are required' });
     }
-    if (type === 'ban' && !canUseAdministration(req.user)) {
-      return res.status(403).json({ error: 'Administrator rank or higher is required to log bans.' });
+
+    const isAdmin = Boolean(req.user.permissions?.canManageAdministrativeActions);
+
+    if (type === 'ban' && !isAdmin) {
+      return res.status(403).json({ error: 'Administrator+ access required to log bans' });
     }
-    const target = String(req.body?.target || '').trim();
-    const reason = String(req.body?.reason || '').trim();
-    if (!target || !reason) {
-      return res.status(400).json({ error: 'Target and reason are required.' });
-    }
+
+    const ops = loadOperations();
+    ops.actions = ops.actions || [];
+
     const action = {
-      id: crypto.randomUUID(),
+      id: `action-${Date.now()}`,
       type,
       target,
       reason,
-      duration: String(req.body?.duration || '').trim() || null,
-      actorId: req.user.id,
+      severity: type === 'warn' ? (severity || 'standard') : (severity || null),
+      duration: duration || null,
+      status: type === 'ban-bolo' ? 'pending' : 'completed',
       actorUsername: req.user.username,
+      createdById: req.user.id,
       createdAt: new Date().toISOString(),
     };
-    operationsStore.actions.push(action);
-    saveOperationsStore();
-    return res.status(201).json(action);
+
+    ops.actions.push(action);
+    saveOperations(ops);
+
+    res.json({ success: true, id: action.id });
   });
 
-  app.post('/api/staff/infractions', requireStaffApi, (req, res) => {
-    if (!canUseManagement(req.user)) {
-      return res.status(403).json({ error: 'Management rank or higher is required to create infractions.' });
+  app.post('/api/staff/actions/:id/complete', requireStaffApi, (req, res) => {
+    const isAdmin = Boolean(req.user.permissions?.canManageAdministrativeActions);
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Administrator+ access required to complete ban BOLOs' });
     }
-    const target = String(req.body?.target || '').trim();
-    const reason = String(req.body?.reason || '').trim();
+
+    const ops = loadOperations();
+    ops.actions = ops.actions || [];
+
+    const action = ops.actions.find((a) => a.id === req.params.id);
+    if (!action) {
+      return res.status(404).json({ error: 'Action not found' });
+    }
+
+    if (action.type !== 'ban-bolo') {
+      return res.status(400).json({ error: 'Only ban BOLOs can be completed' });
+    }
+
+    if (action.status === 'completed') {
+      return res.status(400).json({ error: 'Ban BOLO is already completed' });
+    }
+
+    action.status = 'completed';
+    action.completedBy = req.user.username;
+    action.completedAt = new Date().toISOString();
+    saveOperations(ops);
+
+    res.json({ success: true, id: action.id });
+  });
+
+  app.post('/api/staff/infractions', requireManagement, async (req, res) => {
+    const { target, reason, severity, notes, playerId } = req.body;
+
     if (!target || !reason) {
-      return res.status(400).json({ error: 'Target and reason are required.' });
+      return res.status(400).json({ error: 'Target and reason are required' });
     }
+
+    let resolvedPlayerId = playerId;
+    if (!resolvedPlayerId) {
+      resolvedPlayerId = await findDiscordUserByUsername(target);
+    }
+
     const infraction = {
-      id: crypto.randomUUID(),
+      id: `inf-${Date.now()}`,
+      playerId: resolvedPlayerId || null,
+      playerName: target,
       target,
       reason,
-      severity: String(req.body?.severity || 'standard').trim(),
-      actorId: req.user.id,
+      severity: severity || 'standard',
+      notes: notes || '',
+      managementOnly: true,
+      createdBy: req.user.username,
+      createdById: req.user.id,
       actorUsername: req.user.username,
       createdAt: new Date().toISOString(),
     };
-    operationsStore.infractions.push(infraction);
-    saveOperationsStore();
-    return res.status(201).json(infraction);
+
+    const ops = loadOperations();
+    ops.infractions = ops.infractions || [];
+    ops.infractions.push(infraction);
+    saveOperations(ops);
+
+    let dmSent = false;
+    let dmError = null;
+    if (resolvedPlayerId) {
+      try {
+        dmSent = await dmUserInfraction(resolvedPlayerId, infraction);
+        if (!dmSent) {
+          dmError = 'User has DMs disabled or could not be messaged';
+        }
+      } catch (err) {
+        dmError = err.message;
+      }
+    } else {
+      dmError = 'Could not resolve Discord user for this target';
+    }
+
+    res.json({ success: true, id: infraction.id, dmSent, dmError });
   });
 
   app.post('/api/game/logs', (req, res) => {
-    const expectedSecret = process.env.GAME_LOG_WEBHOOK_SECRET;
-    if (!expectedSecret || req.get('x-erlcarmy-webhook') !== expectedSecret) {
-      return res.status(401).json({ error: 'Game log webhook authentication failed.' });
+    const secret = process.env.GAME_LOG_WEBHOOK_SECRET;
+    const header = req.headers['x-erlcarmy-webhook'];
+
+    if (!secret || header !== secret) {
+      return res.status(401).json({ error: 'Invalid webhook secret' });
     }
-    const type = String(req.body?.type || '').toLowerCase();
-    if (!['command', 'join', 'leave', 'kill'].includes(type)) {
-      return res.status(400).json({ error: 'Game log type must be command, join, leave, or kill.' });
-    }
-    const log = {
-      id: crypto.randomUUID(),
+
+    const payload = req.body;
+    const { type, player, serverId, reason, command, target } = payload;
+
+    const ops = loadOperations();
+    ops.gameLogs = ops.gameLogs || [];
+
+    ops.gameLogs.push({
+      id: `log-${Date.now()}`,
       type,
-      player: String(req.body?.player || '').trim(),
-      command: String(req.body?.command || '').trim() || null,
-      target: String(req.body?.target || '').trim() || null,
-      reason: String(req.body?.reason || '').trim() || null,
-      serverId: String(req.body?.serverId || '').trim() || null,
+      player,
+      target: target || null,
+      serverId,
+      reason: reason || null,
+      command: command || null,
       createdAt: new Date().toISOString(),
-    };
-    if (!log.player) {
-      return res.status(400).json({ error: 'Player is required.' });
-    }
-    operationsStore.gameLogs.push(log);
-    saveOperationsStore();
-    return res.status(201).json(log);
+    });
+
+    saveOperations(ops);
+    res.json({ ok: true });
   });
 
-  app.get('/health', (req, res) => {
-    res.json({ status: 'ok' });
+  app.get('/api/erlc/server', requireManagement, async (req, res) => {
+    try {
+      const data = await fetchErlcServer({
+        players: req.query.players === 'true',
+        staff: req.query.staff === 'true',
+        killLogs: req.query.killLogs === 'true',
+        commandLogs: req.query.commandLogs === 'true',
+        joinLogs: req.query.joinLogs === 'true',
+        queue: req.query.queue === 'true',
+        modCalls: req.query.modCalls === 'true',
+        emergencyCalls: req.query.emergencyCalls === 'true',
+        vehicles: req.query.vehicles === 'true',
+      });
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/erlc/command', requireManagement, async (req, res) => {
+    const { command } = req.body;
+
+    if (!command) {
+      return res.status(400).json({ error: 'Command is required' });
+    }
+
+    try {
+      const data = await runErlcCommand(command);
+      res.json(data);
+    } catch (err) {
+      res.status(err.response?.status || 500).json({ error: err.message });
+    }
   });
 
   app.get('/staff', requireStaffAccess, (req, res) => {
@@ -1112,6 +1197,7 @@ if (require.main === module) {
     console.log(`ERLCARMY is running on http://localhost:${port}`);
     console.log(`Base URL configured: ${baseUrl}`);
     console.log(`Discord OAuth configured: ${isDiscordConfigured ? 'yes' : 'no'}`);
+    console.log(`ERLC API configured: ${ERLC_SERVER_KEY ? 'yes' : 'no'}`);
   });
 }
 
@@ -1125,4 +1211,11 @@ module.exports = {
   getHighestRankFromRoleList,
   getGuildRoleMembershipSummary,
   STAFF_RANK_STRUCTURE,
+  loadOperations,
+  saveOperations,
+  isManagementUser,
+  findDiscordUserByUsername,
+  dmUserInfraction,
+  fetchErlcServer,
+  runErlcCommand,
 };

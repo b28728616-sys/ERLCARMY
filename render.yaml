@@ -29,3 +29,5 @@ services:
         sync: false
       - key: GAME_LOG_WEBHOOK_SECRET
         sync: false
+      - key: ERLC_SERVER_KEY
+        sync: false

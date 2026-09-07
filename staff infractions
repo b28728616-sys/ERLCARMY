@@ -1,0 +1,28 @@
+app.post("/staff/infractions", requireManagement, async (req, res) => {
+  const { playerId, playerName, reason, notes } = req.body;
+
+  const ops = loadOperations();
+  ops.infractions = ops.infractions || [];
+
+  const infraction = {
+    id: Date.now().toString(),
+    playerId,          // Discord user ID
+    playerName,        // Display name
+    reason,
+    notes,
+    managementOnly: true,
+    createdBy: req.user.username,
+    createdById: req.user.id,
+    createdAt: new Date().toISOString()
+  };
+
+  ops.infractions.push(infraction);
+  saveOperations(ops);
+
+  // DM the player about their infraction
+  if (playerId) {
+    await dmUserInfraction(playerId, infraction);
+  }
+
+  res.redirect("/staff/infractions");
+});
