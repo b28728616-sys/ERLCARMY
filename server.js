@@ -14,6 +14,7 @@ const OPERATIONS_FILE = path.join(__dirname, 'data', 'operations.json');
 const ERLC_API_BASE = 'https://api.erlc.gg';
 const ERLC_SERVER_KEY = process.env.ERLC_SERVER_KEY;
 const isErlcMockMode = !ERLC_SERVER_KEY;
+const sendInfractionDms = process.env.DISCORD_SEND_INFRACTION_DMS === 'true';
 
 const port = Number(process.env.PORT) || 3000;
 function normalizeBaseUrl(value) {
@@ -554,7 +555,7 @@ function formatInfractionDM(infraction) {
 }
 
 async function dmUserInfraction(userId, infraction) {
-  if (!userId || !process.env.DISCORD_BOT_TOKEN) return false;
+  if (!userId || !process.env.DISCORD_BOT_TOKEN || !sendInfractionDms) return false;
 
   try {
     const dmChannel = await axios
@@ -1396,7 +1397,9 @@ function createApp() {
 
     let dmSent = false;
     let dmError = null;
-    if (resolvedPlayerId) {
+    if (!sendInfractionDms) {
+      dmError = 'DM notifications disabled by configuration (set DISCORD_SEND_INFRACTION_DMS=true to enable)';
+    } else if (resolvedPlayerId) {
       try {
         dmSent = await dmUserInfraction(resolvedPlayerId, infraction);
         if (!dmSent) {

@@ -29,6 +29,8 @@ services:
         value: "false"
       - key: DISCORD_BOT_TOKEN
         sync: false
+      - key: DISCORD_SEND_INFRACTION_DMS
+        value: "false"
       - key: GAME_LOG_WEBHOOK_SECRET
         sync: false
       - key: ERLC_SERVER_KEY
