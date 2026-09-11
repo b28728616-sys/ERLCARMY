@@ -989,7 +989,7 @@ function createApp() {
               </ul>
               <p><code>DISCORD_BOT_TOKEN</code> is optional for sign-in, but enables the fallback member lookup and unique-rank checks.</p>
               <p>Redirect URL must be set in Discord Developer Portal:</p>
-              <code style="display:block;padding:12px;border-radius:8px;background:#0b1320;white-space:pre-wrap;">${baseUrl}/auth/discord/client-callback</code>
+              <code style="display:block;padding:12px;border-radius:8px;background:#0b1320;white-space:pre-wrap;">${baseUrl}/auth/discord/callback</code>
               <p><a href="/" style="color:#5ea7ff;">Return to the public site</a></p>
             </div>
           </body>
@@ -1001,12 +1001,12 @@ function createApp() {
     req.session.redirectTo = redirectTo;
     const state = crypto.randomBytes(24).toString('hex');
     req.session.discordOAuthState = state;
-    const callbackUrl = `${baseUrl}/auth/discord/client-callback`;
+    const callbackUrl = `${baseUrl}/auth/discord/callback`;
     const authorizationUrl = new URL('https://discord.com/oauth2/authorize');
     authorizationUrl.search = new URLSearchParams({
       client_id: process.env.DISCORD_CLIENT_ID,
       redirect_uri: callbackUrl,
-      response_type: 'token',
+      response_type: 'code',
       scope: 'identify guilds.members.read',
       state,
     }).toString();
@@ -1081,9 +1081,12 @@ function createApp() {
   });
 
   app.get('/auth/discord/callback', (req, res, next) => {
-    if (!discordStrategy || !req.query.code) {
-      return res.redirect('/staff?auth=failed&reason=discord-callback');
+    const callbackState = typeof req.query.state === 'string' ? req.query.state : null;
+    if (!discordStrategy || !req.query.code || !callbackState || callbackState !== req.session.discordOAuthState) {
+      delete req.session.discordOAuthState;
+      return res.redirect('/staff?auth=failed&reason=discord-state');
     }
+    delete req.session.discordOAuthState;
 
     if (discordTokenCooldownUntil > Date.now()) {
       const retryAfter = Math.ceil((discordTokenCooldownUntil - Date.now()) / 1000);
