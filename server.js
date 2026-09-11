@@ -24,6 +24,38 @@ function normalizeBaseUrl(value) {
 }
 
 const baseUrl = normalizeBaseUrl(process.env.BASE_URL);
+
+function normalizeOAuthRedirectUri(value) {
+  if (!value) return null;
+  const trimmed = String(value).trim().replace(/\/+$/, '');
+  try {
+    const url = new URL(trimmed);
+    return ['http:', 'https:'].includes(url.protocol) ? url.toString().replace(/\/+$/, '') : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function getOAuthRedirectUri(req) {
+  const configured = normalizeOAuthRedirectUri(process.env.DISCORD_REDIRECT_URI);
+  if (configured) return configured;
+  if (!req) return `${baseUrl}/auth/discord/callback`;
+
+  const protocol = String(req.get('x-forwarded-proto') || req.protocol || 'http').split(',')[0].trim();
+  const host = String(req.get('x-forwarded-host') || req.get('host') || '').split(',')[0].trim();
+  if (!host || !['http:', 'https:'].includes(protocol)) {
+    return `${baseUrl}/auth/discord/callback`;
+  }
+
+  try {
+    return new URL('/auth/discord/callback', `${protocol}://${host}`).toString().replace(/\/+$/, '');
+  } catch (error) {
+    return `${baseUrl}/auth/discord/callback`;
+  }
+}
+
+const discordRedirectUri = getOAuthRedirectUri();
+
 const guildId = process.env.DISCORD_GUILD_ID;
 const staffRoleMap = parseStaffRoleMap(process.env.DISCORD_STAFF_ROLE_MAP);
 const legacyStaffRoleIds = parseStaffRoleIds(process.env.DISCORD_STAFF_ROLE_IDS);
@@ -800,7 +832,7 @@ function createApp() {
         {
           clientID: process.env.DISCORD_CLIENT_ID,
           clientSecret: process.env.DISCORD_CLIENT_SECRET,
-          callbackURL: `${baseUrl}/auth/discord/callback`,
+          callbackURL: discordRedirectUri,
           scope: ['identify', 'guilds.members.read'],
         },
         async (accessToken, refreshToken, profile, done) => {
@@ -989,7 +1021,7 @@ function createApp() {
               </ul>
               <p><code>DISCORD_BOT_TOKEN</code> is optional for sign-in, but enables the fallback member lookup and unique-rank checks.</p>
               <p>Redirect URL must be set in Discord Developer Portal:</p>
-              <code style="display:block;padding:12px;border-radius:8px;background:#0b1320;white-space:pre-wrap;">${baseUrl}/auth/discord/callback</code>
+              <code style="display:block;padding:12px;border-radius:8px;background:#0b1320;white-space:pre-wrap;">${discordRedirectUri}</code>
               <p><a href="/" style="color:#5ea7ff;">Return to the public site</a></p>
             </div>
           </body>
@@ -1001,7 +1033,7 @@ function createApp() {
     req.session.redirectTo = redirectTo;
     const state = crypto.randomBytes(24).toString('hex');
     req.session.discordOAuthState = state;
-    const callbackUrl = `${baseUrl}/auth/discord/callback`;
+    const callbackUrl = discordRedirectUri;
     const authorizationUrl = new URL('https://discord.com/oauth2/authorize');
     authorizationUrl.search = new URLSearchParams({
       client_id: process.env.DISCORD_CLIENT_ID,
@@ -1124,7 +1156,7 @@ function createApp() {
       client_secret: process.env.DISCORD_CLIENT_SECRET,
       grant_type: 'authorization_code',
       code: callbackCode,
-      redirect_uri: `${baseUrl}/auth/discord/callback`,
+      redirect_uri: discordRedirectUri,
     }).toString(), {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       timeout: 10000,
