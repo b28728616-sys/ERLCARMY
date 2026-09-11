@@ -94,6 +94,17 @@
                 </div>
 
                 <div class="sidebar-block">
+                  <p class="sidebar-label">Professional Standards</p>
+                  <ul>
+                    <li><a href="#dpsSection">DPS Dashboard</a></li>
+                    <li><a href="#dps-investigations">Investigations</a></li>
+                    <li><a href="#dps-audits">Shift Audits</a></li>
+                    <li><a href="#dps-complaints">Complaints</a></li>
+                    <li><a href="#dps-policy">Policy & Compliance</a></li>
+                  </ul>
+                </div>
+
+                <div class="sidebar-block">
                   <p class="sidebar-label">Authority</p>
                   <ul>
                     <li>Executive Leadership</li>
@@ -150,63 +161,651 @@
                     </div>
                     <span id="quotaStatus" class="status-pill">0 / 2h</span>
                   </div>
-                  <div class="operations-grid">
-                    <div class="operation-block shift-tracker">
-                      <p class="dash-label">Weekly shift quota</p>
-                      <div class="quota-track"><span id="quotaBar"></span></div>
-                      <div class="shift-status-row">
-                        <span id="shiftStatus" class="staff-message">No active shift.</span>
-                        <span id="shiftTimer" class="shift-timer">--:--:--</span>
+
+                  <div class="tabs" role="tablist" aria-label="Operations Sections">
+                    <button class="tab-btn active" role="tab" aria-selected="true" data-tab="ops-shifts">Shifts</button>
+                    <button class="tab-btn" role="tab" aria-selected="false" data-tab="ops-actions">Moderation Actions</button>
+                    <button class="tab-btn" role="tab" aria-selected="false" data-tab="ops-infractions">Management Infractions</button>
+                    <button class="tab-btn" role="tab" aria-selected="false" data-tab="ops-logs">Activity Logs</button>
+                  </div>
+
+                  <div class="tab-panel active" id="ops-shifts" role="tabpanel">
+                    <div class="operations-grid">
+                      <div class="operation-block shift-tracker">
+                        <p class="dash-label">Weekly shift quota</p>
+                        <div class="quota-track"><span id="quotaBar"></span></div>
+                        <div class="shift-status-row">
+                          <span id="shiftStatus" class="staff-message">No active shift.</span>
+                          <span id="shiftTimer" class="shift-timer">--:--:--</span>
+                        </div>
+                        <div class="staff-input-row">
+                          <button id="startShiftBtn" class="btn btn-primary" type="button">Start shift</button>
+                          <button id="stopShiftBtn" class="btn btn-secondary" type="button" disabled>End shift</button>
+                        </div>
+                        <div class="shift-controls" id="activeShiftControls" style="display: none;">
+                          <div class="form-row-inline">
+                            <label>Break<input type="checkbox" id="breakCheckbox" name="onBreak"> On Break</label>
+                            <label>Status<select id="shiftStatusSelect" name="shiftStatus">
+                              <option value="active">Active</option>
+                              <option value="break">On Break</option>
+                              <option value="standby">Standby</option>
+                            </select></label>
+                          </div>
+                          <div class="form-row-inline">
+                            <label>Location<input id="shiftLocation" name="location" placeholder="Current location (e.g., PD, Hospital, Patrol)"></label>
+                            <label>Vehicle<input id="shiftVehicle" name="vehicle" placeholder="Vehicle/Unit number"></label>
+                          </div>
+                          <button id="updateShiftBtn" class="btn btn-secondary" type="button">Update Shift</button>
+                        </div>
+                        <p id="shiftMessage" class="staff-message"></p>
                       </div>
-                      <div class="staff-input-row">
-                        <button id="startShiftBtn" class="btn btn-primary" type="button">Start shift</button>
-                        <button id="stopShiftBtn" class="btn btn-secondary" type="button" disabled>End shift</button>
+
+                      <div class="operation-block shift-quick-stats">
+                        <p class="dash-label">This Week</p>
+                        <div class="stat-grid" id="shiftWeekStats">
+                          <div class="stat-card"><div class="stat-value" id="statShiftsCount">0</div><div class="stat-label">Shifts Completed</div></div>
+                          <div class="stat-card"><div class="stat-value" id="statTotalHours">0h 0m</div><div class="stat-label">Total Hours</div></div>
+                          <div class="stat-card"><div class="stat-value" id="statAvgHours">0h 0m</div><div class="stat-label">Avg per Shift</div></div>
+                          <div class="stat-card"><div class="stat-value" id="statLongestShift">0h 0m</div><div class="stat-label">Longest Shift</div></div>
+                        </div>
                       </div>
-                      <p id="shiftMessage" class="staff-message"></p>
                     </div>
-                    <form id="actionForm" class="operation-block">
-                      <p class="dash-label">Moderation action</p>
-                      <label>Action<select id="actionType" name="type">
-                        <option value="warn">Warning</option>
-                        <option value="kick">Kick</option>
-                        <option value="bolo">BOLO</option>
-                        <option value="ban-bolo">Ban BOLO (Pending)</option>
-                        <option value="ban" data-admin="true">Ban (Admin+)</option>
-                      </select></label>
-                      <label>Target<input name="target" required placeholder="Player username"></label>
-                      <label>Reason<textarea name="reason" required rows="2" placeholder="Document the reason"></textarea></label>
-                      <div id="warnSeverityRow" class="form-row-inline">
-                        <label>Severity<select name="severity"><option value="standard">Standard</option><option value="serious">Serious</option><option value="critical">Critical</option></select></label>
-                        <label>Duration<input name="duration" placeholder="Optional duration"></label>
+
+                    <div class="search-box">
+                      <input type="text" id="shiftHistorySearch" placeholder="Search shift history..." aria-label="Search shift history">
+                      <select id="shiftHistoryFilter">
+                        <option value="all">All Shifts</option>
+                        <option value="completed">Completed</option>
+                        <option value="active">Active</option>
+                        <option value="flagged">Flagged</option>
+                      </select>
+                    </div>
+
+                    <div class="table-responsive">
+                      <table class="data-table">
+                        <thead>
+                          <tr>
+                            <th>Date</th>
+                            <th>Start Time</th>
+                            <th>End Time</th>
+                            <th>Duration</th>
+                            <th>Location</th>
+                            <th>Vehicle</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody id="shiftHistoryTableBody"></tbody>
+                      </table>
+                    </div>
+                    <div class="pagination" id="shiftHistoryPagination"></div>
+                  </div>
+
+                  <div class="tab-panel" id="ops-actions" role="tabpanel">
+                    <div class="operations-grid">
+                      <form id="actionForm" class="operation-block">
+                        <div class="form-header">
+                          <p class="dash-label">Log Moderation Action</p>
+                          <span id="actionPermission" class="staff-message"></span>
+                        </div>
+
+                        <div class="form-row">
+                          <label>Action Type
+                            <select id="actionType" name="type" required>
+                              <option value="">Select action type</option>
+                              <option value="warn">Warning</option>
+                              <option value="kick">Kick</option>
+                              <option value="bolo">BOLO</option>
+                              <option value="ban-bolo">Ban BOLO (Pending)</option>
+                              <option value="ban" data-admin="true">Ban (Admin+)</option>
+                              <option value="mute" data-admin="true">Mute (Admin+)</option>
+                              <option value="jail" data-admin="true">Jail (Admin+)</option>
+                            </select>
+                          </label>
+                        </div>
+
+                        <div class="form-row" id="targetRow">
+                          <label>Target Player
+                            <input name="target" required placeholder="Player username" autocomplete="off" list="recentPlayers">
+                            <datalist id="recentPlayers"></datalist>
+                          </label>
+                        </div>
+
+                        <div class="form-row">
+                          <label>Reason
+                            <textarea name="reason" required rows="3" placeholder="Detailed reason for the action..."></textarea>
+                          </label>
+                        </div>
+
+                        <div id="warnSeverityRow" class="form-row-inline" style="display: none;">
+                          <label>Severity
+                            <select name="severity">
+                              <option value="standard">Standard</option>
+                              <option value="serious">Serious</option>
+                              <option value="critical">Critical</option>
+                            </select>
+                          </label>
+                          <label>Duration
+                            <input name="duration" placeholder="e.g., 30m, 2h, 1d (optional)">
+                          </label>
+                        </div>
+
+                        <div id="kickDurationRow" class="form-row-inline" style="display: none;">
+                          <label>Kick Duration
+                            <input name="kickDuration" placeholder="e.g., 30m, 1h (required for kicks)" required>
+                          </label>
+                        </div>
+
+                        <div id="boloDetailsRow" class="form-row" style="display: none;">
+                          <label>BOLO Details
+                            <textarea name="boloDetails" rows="2" placeholder="Additional details for BOLO (vehicle, description, last known location, etc.)"></textarea>
+                          </label>
+                        </div>
+
+                        <div id="banDetailsRow" class="form-row" style="display: none;">
+                          <div class="form-row-inline">
+                            <label>Ban Duration
+                              <select name="banDuration">
+                                <option value="permanent">Permanent</option>
+                                <option value="1d">1 Day</option>
+                                <option value="3d">3 Days</option>
+                                <option value="7d">7 Days</option>
+                                <option value="14d">14 Days</option>
+                                <option value="30d">30 Days</option>
+                                <option value="custom">Custom</option>
+                              </select>
+                            </label>
+                            <label id="customBanDurationLabel" style="display: none;">
+                              Custom Duration
+                              <input name="customBanDuration" placeholder="e.g., 60d">
+                            </label>
+                          </div>
+                          <label>Evidence Link
+                            <input name="evidenceLink" placeholder="Link to evidence (clip, screenshot, logs)">
+                          </label>
+                        </div>
+
+                        <div class="form-row">
+                          <label>Notes (Internal)
+                            <textarea name="notes" rows="2" placeholder="Internal notes not sent to player (optional)"></textarea>
+                          </label>
+                        </div>
+
+                        <div class="form-actions">
+                          <button type="submit" class="btn btn-primary">Log Action</button>
+                          <button type="button" class="btn btn-secondary" id="clearActionForm">Clear Form</button>
+                        </div>
+                      </form>
+
+                      <div class="operation-block action-presets">
+                        <p class="dash-label">Quick Presets</p>
+                        <div class="preset-grid" id="actionPresets"></div>
                       </div>
-                      <button class="btn btn-primary" type="submit">Log action</button>
-                      <p id="actionPermission" class="staff-message"></p>
-                    </form>
-                    <form id="infractionForm" class="operation-block">
-                      <p class="dash-label">Management infraction</p>
-                      <label>Target<input name="target" required placeholder="Staff username"></label>
-                      <label>Reason<textarea name="reason" required rows="2" placeholder="Document the infraction"></textarea></label>
-                      <label>Severity<select name="severity"><option value="standard">Standard</option><option value="serious">Serious</option><option value="critical">Critical</option></select></label>
-                      <label>Notes<textarea name="notes" rows="2" placeholder="Optional internal notes (not DM'd to user)"></textarea></label>
-                      <button class="btn btn-primary" type="submit">Create infraction</button>
-                      <p id="infractionPermission" class="staff-message"></p>
-                    </form>
+                    </div>
+
+                    <div class="search-box">
+                      <input type="text" id="actionsSearch" placeholder="Search actions..." aria-label="Search moderation actions">
+                      <select id="actionsFilterType">
+                        <option value="all">All Types</option>
+                        <option value="warn">Warnings</option>
+                        <option value="kick">Kicks</option>
+                        <option value="bolo">BOLOs</option>
+                        <option value="ban-bolo">Ban BOLOs</option>
+                        <option value="ban">Bans</option>
+                        <option value="mute">Mutes</option>
+                        <option value="jail">Jails</option>
+                      </select>
+                      <select id="actionsFilterStatus">
+                        <option value="all">All Statuses</option>
+                        <option value="pending">Pending</option>
+                        <option value="completed">Completed</option>
+                      </select>
+                    </div>
+
+                    <div class="table-responsive">
+                      <table class="data-table">
+                        <thead>
+                          <tr>
+                            <th>Type</th>
+                            <th>Target</th>
+                            <th>Reason</th>
+                            <th>Severity</th>
+                            <th>Duration</th>
+                            <th>Staff</th>
+                            <th>Time</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody id="actionsTableBody"></tbody>
+                      </table>
+                    </div>
+                    <div class="pagination" id="actionsPagination"></div>
                   </div>
 
-                  <div class="shift-history-section">
-                    <p class="dash-label">Recent shifts</p>
-                    <div id="shiftHistory" class="shift-history-table"></div>
+                  <div class="tab-panel" id="ops-infractions" role="tabpanel">
+                    <div class="operations-grid">
+                      <form id="infractionForm" class="operation-block">
+                        <div class="form-header">
+                          <p class="dash-label">Create Management Infraction</p>
+                          <span id="infractionPermission" class="staff-message"></span>
+                        </div>
+
+                        <div class="form-row">
+                          <label>Target Staff Member
+                            <input name="target" required placeholder="Staff username" autocomplete="off" list="staffMembers">
+                            <datalist id="staffMembers"></datalist>
+                          </label>
+                        </div>
+
+                        <div class="form-row">
+                          <label>Infraction Category
+                            <select name="category" required>
+                              <option value="">Select category</option>
+                              <option value="conduct">Conduct Violation</option>
+                              <option value="performance">Performance Issue</option>
+                              <option value="attendance">Attendance / Shift Abuse</option>
+                              <option value="policy">Policy Violation</option>
+                              <option value="abuse">Command/Authority Abuse</option>
+                              <option value="discord">Discord Misconduct</option>
+                              <option value="other">Other</option>
+                            </select>
+                          </label>
+                        </div>
+
+                        <div class="form-row">
+                          <label>Reason
+                            <textarea name="reason" required rows="3" placeholder="Detailed description of the infraction..."></textarea>
+                          </label>
+                        </div>
+
+                        <div class="form-row-inline">
+                          <label>Severity
+                            <select name="severity" required>
+                              <option value="standard">Standard</option>
+                              <option value="serious">Serious</option>
+                              <option value="critical">Critical</option>
+                            </select>
+                          </label>
+                          <label>Recommended Action
+                            <select name="recommendedAction">
+                              <option value="">None</option>
+                              <option value="verbal">Verbal Counseling</option>
+                              <option value="written">Written Warning</option>
+                              <option value="suspension">Shift Suspension</option>
+                              <option value="demotion">Rank Suspension</option>
+                              <option value="removal">Removal from Staff</option>
+                            </select>
+                          </label>
+                        </div>
+
+                        <div class="form-row">
+                          <label>Evidence / Context
+                            <textarea name="evidence" rows="2" placeholder="Links to evidence, logs, screenshots, witness statements (optional)"></textarea>
+                          </label>
+                        </div>
+
+                        <div class="form-row">
+                          <label>Internal Notes (Management Only)
+                            <textarea name="notes" rows="2" placeholder="Internal notes not DM'd to the staff member"></textarea>
+                          </label>
+                        </div>
+
+                        <div class="form-row-inline">
+                          <label>
+                            <input type="checkbox" name="sendDM" checked> Send DM to staff member
+                          </label>
+                          <label>
+                            <input type="checkbox" name="notifyCommand"> Notify command staff
+                          </label>
+                        </div>
+
+                        <div class="form-actions">
+                          <button type="submit" class="btn btn-primary">Create Infraction</button>
+                          <button type="button" class="btn btn-secondary" id="clearInfractionForm">Clear Form</button>
+                        </div>
+                      </form>
+
+                      <div class="operation-block infraction-presets">
+                        <p class="dash-label">Common Infraction Templates</p>
+                        <div class="preset-grid" id="infractionPresets"></div>
+                      </div>
+                    </div>
+
+                    <div class="search-box">
+                      <input type="text" id="infractionsSearch" placeholder="Search infractions..." aria-label="Search management infractions">
+                      <select id="infractionsFilterSeverity">
+                        <option value="all">All Severities</option>
+                        <option value="standard">Standard</option>
+                        <option value="serious">Serious</option>
+                        <option value="critical">Critical</option>
+                      </select>
+                      <select id="infractionsFilterCategory">
+                        <option value="all">All Categories</option>
+                        <option value="conduct">Conduct</option>
+                        <option value="performance">Performance</option>
+                        <option value="attendance">Attendance</option>
+                        <option value="policy">Policy</option>
+                        <option value="abuse">Abuse</option>
+                        <option value="discord">Discord</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+
+                    <div class="table-responsive">
+                      <table class="data-table">
+                        <thead>
+                          <tr>
+                            <th>ID</th>
+                            <th>Target</th>
+                            <th>Category</th>
+                            <th>Severity</th>
+                            <th>Recommended</th>
+                            <th>Status</th>
+                            <th>Filed By</th>
+                            <th>Date</th>
+                            <th>DM Sent</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody id="infractionsTableBody"></tbody>
+                      </table>
+                    </div>
+                    <div class="pagination" id="infractionsPagination"></div>
                   </div>
 
-                  <div id="banBoloSection" class="ban-bolo-section hidden">
-                    <p class="dash-label">Pending Ban BOLOs</p>
-                    <div id="banBoloList" class="action-list"></div>
+                  <div class="tab-panel" id="ops-logs" role="tabpanel">
+                    <div class="tabs" role="tablist" aria-label="Log Types">
+                      <button class="tab-btn active" role="tab" aria-selected="true" data-tab="logs-game">Game Logs</button>
+                      <button class="tab-btn" role="tab" aria-selected="false" data-tab="logs-actions">Actions</button>
+                      <button class="tab-btn" role="tab" aria-selected="false" data-tab="logs-infractions">Infractions</button>
+                      <button class="tab-btn" role="tab" aria-selected="false" data-tab="logs-shifts">Shifts</button>
+                    </div>
+
+                    <div class="tab-panel active" id="logs-game" role="tabpanel">
+                      <div class="search-box">
+                        <input type="text" id="gameLogsSearch" placeholder="Search game logs..." aria-label="Search game logs">
+                        <select id="gameLogsFilter">
+                          <option value="all">All Types</option>
+                          <option value="command">Commands</option>
+                          <option value="chat">Chat</option>
+                          <option value="join">Joins</option>
+                          <option value="leave">Leaves</option>
+                          <option value="death">Deaths</option>
+                        </select>
+                      </div>
+                      <div id="gameLogsFeed" class="activity-feed"></div>
+                    </div>
+
+                    <div class="tab-panel" id="logs-actions" role="tabpanel">
+                      <div class="search-box">
+                        <input type="text" id="actionLogsSearch" placeholder="Search action logs..." aria-label="Search action logs">
+                        <select id="actionLogsFilter">
+                          <option value="all">All Types</option>
+                          <option value="warn">Warnings</option>
+                          <option value="kick">Kicks</option>
+                          <option value="ban">Bans</option>
+                        </select>
+                      </div>
+                      <div id="actionsFeed" class="activity-feed"></div>
+                    </div>
+
+                    <div class="tab-panel" id="logs-infractions" role="tabpanel">
+                      <div class="search-box">
+                        <input type="text" id="infractionLogsSearch" placeholder="Search infraction logs..." aria-label="Search infraction logs">
+                        <select id="infractionLogsFilter">
+                          <option value="all">All Severities</option>
+                          <option value="standard">Standard</option>
+                          <option value="serious">Serious</option>
+                          <option value="critical">Critical</option>
+                        </select>
+                      </div>
+                      <div id="infractionsFeed" class="activity-feed"></div>
+                    </div>
+
+                    <div class="tab-panel" id="logs-shifts" role="tabpanel">
+                      <div class="search-box">
+                        <input type="text" id="shiftLogsSearch" placeholder="Search shift logs..." aria-label="Search shift logs">
+                        <select id="shiftLogsFilter">
+                          <option value="all">All</option>
+                          <option value="start">Shift Starts</option>
+                          <option value="end">Shift Ends</option>
+                          <option value="break">Breaks</option>
+                        </select>
+                      </div>
+                      <div id="shiftLogsFeed" class="activity-feed"></div>
+                    </div>
+                  </div>
+                </section>
+
+                <section id="dpsSection" class="content-panel dps-panel hidden">
+                  <div class="staff-portal-header">
+                    <div>
+                      <p class="eyebrow">Professional Standards</p>
+                      <h3>Department of Professional Standards</h3>
+                    </div>
+                    <span id="dpsStatus" class="status-pill">Management+</span>
                   </div>
 
-                  <div class="operations-feeds">
-                    <div><p class="dash-label">Recent game logs</p><div id="gameLogsFeed" class="activity-feed"></div></div>
-                    <div><p class="dash-label">Recent actions</p><div id="actionsFeed" class="activity-feed"></div></div>
-                    <div><p class="dash-label">Recent infractions</p><div id="infractionsFeed" class="activity-feed"></div></div>
+                  <div class="tabs" role="tablist" aria-label="DPS Sections">
+                    <button class="tab-btn active" role="tab" aria-selected="true" data-tab="dps-dashboard">Dashboard</button>
+                    <button class="tab-btn" role="tab" aria-selected="false" data-tab="dps-investigations">Investigations</button>
+                    <button class="tab-btn" role="tab" aria-selected="false" data-tab="dps-audits">Shift Audits</button>
+                    <button class="tab-btn" role="tab" aria-selected="false" data-tab="dps-complaints">Complaints</button>
+                    <button class="tab-btn" role="tab" aria-selected="false" data-tab="dps-policy">Policy & Compliance</button>
+                  </div>
+
+                  <div class="tab-panel active" id="dps-dashboard" role="tabpanel">
+                    <div class="dashboard-strip">
+                      <article class="stat-card">
+                        <div class="stat-value" id="dpsOpenCases">0</div>
+                        <div class="stat-label">Open Investigations</div>
+                      </article>
+                      <article class="stat-card">
+                        <div class="stat-value" id="dpsPendingAudits">0</div>
+                        <div class="stat-label">Pending Shift Audits</div>
+                      </article>
+                      <article class="stat-card">
+                        <div class="stat-value" id="dpsOpenComplaints">0</div>
+                        <div class="stat-label">Open Complaints</div>
+                      </article>
+                      <article class="stat-card">
+                        <div class="stat-value" id="dpsResolvedThisWeek">0</div>
+                        <div class="stat-label">Resolved This Week</div>
+                      </article>
+                    </div>
+
+                    <div class="search-box">
+                      <input type="text" id="dpsSearch" placeholder="Search investigations, audits, complaints..." aria-label="Search DPS records">
+                      <select id="dpsFilterStatus">
+                        <option value="all">All Statuses</option>
+                        <option value="open">Open</option>
+                        <option value="in-progress">In Progress</option>
+                        <option value="pending-review">Pending Review</option>
+                        <option value="closed">Closed</option>
+                      </select>
+                      <select id="dpsFilterType">
+                        <option value="all">All Types</option>
+                        <option value="investigation">Investigations</option>
+                        <option value="audit">Shift Audits</option>
+                        <option value="complaint">Complaints</option>
+                      </select>
+                    </div>
+
+                    <div class="table-responsive">
+                      <table class="data-table" id="dpsDashboardTable">
+                        <thead>
+                          <tr>
+                            <th>Type</th>
+                            <th>Case ID</th>
+                            <th>Subject</th>
+                            <th>Status</th>
+                            <th>Priority</th>
+                            <th>Assigned</th>
+                            <th>Opened</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody id="dpsDashboardBody"></tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div class="tab-panel" id="dps-investigations" role="tabpanel">
+                    <div class="dps-section-header">
+                      <h4>Investigation Management</h4>
+                      <button class="btn btn-primary" id="newInvestigationBtn" type="button">New Investigation</button>
+                    </div>
+
+                    <div class="search-box">
+                      <input type="text" id="investigationSearch" placeholder="Search investigations..." aria-label="Search investigations">
+                      <select id="investigationFilterStatus">
+                        <option value="all">All Statuses</option>
+                        <option value="open">Open</option>
+                        <option value="in-progress">In Progress</option>
+                        <option value="pending-review">Pending Review</option>
+                        <option value="closed">Closed</option>
+                      </select>
+                      <select id="investigationFilterPriority">
+                        <option value="all">All Priorities</option>
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                        <option value="critical">Critical</option>
+                      </select>
+                    </div>
+
+                    <div class="table-responsive">
+                      <table class="data-table">
+                        <thead>
+                          <tr>
+                            <th>Case ID</th>
+                            <th>Subject</th>
+                            <th>Allegation</th>
+                            <th>Status</th>
+                            <th>Priority</th>
+                            <th>Investigator</th>
+                            <th>Opened</th>
+                            <th>Last Update</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody id="investigationsTableBody"></tbody>
+                      </table>
+                    </div>
+
+                    <div class="pagination" id="investigationsPagination"></div>
+                  </div>
+
+                  <div class="tab-panel" id="dps-audits" role="tabpanel">
+                    <div class="dps-section-header">
+                      <h4>Shift Audits</h4>
+                      <button class="btn btn-primary" id="newAuditBtn" type="button">Initiate Audit</button>
+                    </div>
+
+                    <div class="search-box">
+                      <input type="text" id="auditSearch" placeholder="Search audits..." aria-label="Search shift audits">
+                      <select id="auditFilterStatus">
+                        <option value="all">All Statuses</option>
+                        <option value="pending">Pending</option>
+                        <option value="in-progress">In Progress</option>
+                        <option value="completed">Completed</option>
+                        <option value="flagged">Flagged</option>
+                      </select>
+                      <select id="auditFilterResult">
+                        <option value="all">All Results</option>
+                        <option value="pass">Pass</option>
+                        <option value="fail">Fail</option>
+                        <option value="needs-review">Needs Review</option>
+                      </select>
+                    </div>
+
+                    <div class="table-responsive">
+                      <table class="data-table">
+                        <thead>
+                          <tr>
+                            <th>Audit ID</th>
+                            <th>Staff Member</th>
+                            <th>Shift Date</th>
+                            <th>Status</th>
+                            <th>Result</th>
+                            <th>Auditor</th>
+                            <th>Flags</th>
+                            <th>Completed</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody id="auditsTableBody"></tbody>
+                      </table>
+                    </div>
+
+                    <div class="pagination" id="auditsPagination"></div>
+                  </div>
+
+                  <div class="tab-panel" id="dps-complaints" role="tabpanel">
+                    <div class="dps-section-header">
+                      <h4>Complaint Management</h4>
+                      <button class="btn btn-primary" id="newComplaintBtn" type="button">New Complaint</button>
+                    </div>
+
+                    <div class="search-box">
+                      <input type="text" id="complaintSearch" placeholder="Search complaints..." aria-label="Search complaints">
+                      <select id="complaintFilterStatus">
+                        <option value="all">All Statuses</option>
+                        <option value="open">Open</option>
+                        <option value="investigating">Investigating</option>
+                        <option value="resolved">Resolved</option>
+                        <option value="dismissed">Dismissed</option>
+                      </select>
+                      <select id="complaintFilterType">
+                        <option value="all">All Types</option>
+                        <option value="internal">Internal</option>
+                        <option value="external">External</option>
+                        <option value="anonymous">Anonymous</option>
+                      </select>
+                    </div>
+
+                    <div class="table-responsive">
+                      <table class="data-table">
+                        <thead>
+                          <tr>
+                            <th>Complaint ID</th>
+                            <th>Complainant</th>
+                            <th>Subject</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Category</th>
+                            <th>Assigned</th>
+                            <th>Filed</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody id="complaintsTableBody"></tbody>
+                      </table>
+                    </div>
+
+                    <div class="pagination" id="complaintsPagination"></div>
+                  </div>
+
+                  <div class="tab-panel" id="dps-policy" role="tabpanel">
+                    <div class="dps-section-header">
+                      <h4>Policy & Compliance</h4>
+                      <button class="btn btn-primary" id="newPolicyBtn" type="button">New Policy Document</button>
+                    </div>
+
+                    <div class="search-box">
+                      <input type="text" id="policySearch" placeholder="Search policies..." aria-label="Search policy documents">
+                      <select id="policyFilterCategory">
+                        <option value="all">All Categories</option>
+                        <option value="conduct">Conduct</option>
+                        <option value="operations">Operations</option>
+                        <option value="discipline">Discipline</option>
+                        <option value="training">Training</option>
+                        <option value="general">General</option>
+                      </select>
+                    </div>
+
+                    <div class="accordion" id="policyAccordion"></div>
                   </div>
                 </section>
 
@@ -464,7 +1063,7 @@
                   </p>
                   <div class="staff-grid inward-grid">
                     <article class="staff-panel">
-                      <p class="eyebrow">Tier 3</p>
+                      < class="eyebrow">Tier 3<
                       <h4>ODA (Green Berets)</h4>
                       <p>
                         ODA teams specialize in unconventional warfare, partner-force support, training, advising, and complex missions requiring judgment and discretion.
@@ -602,13 +1201,17 @@
       </section>
     </main>
 
-    <footer class="footer">
+    <footer class="footer legal-footer">
       <div class="container footer-inner">
         <div>
           <div class="brand-name footer-brand">ERLCARMY</div>
           <p>Discipline. Order. Fairness.</p>
         </div>
-        <p>© 2026 ERLCARMY Departments&trade; · Command Staff</p>
+        <div>
+          <p><strong>© 2026 ERLCARMY Departments&trade;</strong> All rights reserved.</p>
+          <p>ERLCARMY, the ERLCARMY name, department marks, insignia, and related branding are trademarks of ERLCARMY Departments. Unauthorized use is prohibited.</p>
+          <p>This staff portal is an internal roleplay operations resource. It is not affiliated with, endorsed by, or sponsored by Roblox Corporation or the developers of Emergency Response: Liberty County.</p>
+        </div>
       </div>
     </footer>
 
@@ -622,14 +1225,77 @@
       const stopShiftBtn = document.getElementById('stopShiftBtn');
       const shiftTimerEl = document.getElementById('shiftTimer');
       const shiftMessageEl = document.getElementById('shiftMessage');
-      const shiftHistoryEl = document.getElementById('shiftHistory');
+      const shiftHistoryTableBody = document.getElementById('shiftHistoryTableBody');
+      const shiftHistoryPagination = document.getElementById('shiftHistoryPagination');
       const actionForm = document.getElementById('actionForm');
       const actionTypeSelect = document.getElementById('actionType');
       const warnSeverityRow = document.getElementById('warnSeverityRow');
+      const kickDurationRow = document.getElementById('kickDurationRow');
+      const boloDetailsRow = document.getElementById('boloDetailsRow');
+      const banDetailsRow = document.getElementById('banDetailsRow');
+      const customBanDurationLabel = document.getElementById('customBanDurationLabel');
+      const actionPresets = document.getElementById('actionPresets');
+      const actionsTableBody = document.getElementById('actionsTableBody');
+      const actionsPagination = document.getElementById('actionsPagination');
       const infractionForm = document.getElementById('infractionForm');
-      const banBoloSection = document.getElementById('banBoloSection');
-      const banBoloList = document.getElementById('banBoloList');
+      const infractionPresets = document.getElementById('infractionPresets');
+      const infractionsTableBody = document.getElementById('infractionsTableBody');
+      const infractionsPagination = document.getElementById('infractionsPagination');
       const erlcSection = document.getElementById('erlcSection');
+      const activeShiftControls = document.getElementById('activeShiftControls');
+      const breakCheckbox = document.getElementById('breakCheckbox');
+      const shiftStatusSelect = document.getElementById('shiftStatusSelect');
+      const shiftLocation = document.getElementById('shiftLocation');
+      const shiftVehicle = document.getElementById('shiftVehicle');
+      const updateShiftBtn = document.getElementById('updateShiftBtn');
+      const shiftHistorySearch = document.getElementById('shiftHistorySearch');
+      const shiftHistoryFilter = document.getElementById('shiftHistoryFilter');
+      const actionsSearch = document.getElementById('actionsSearch');
+      const actionsFilterType = document.getElementById('actionsFilterType');
+      const actionsFilterStatus = document.getElementById('actionsFilterStatus');
+      const infractionsSearch = document.getElementById('infractionsSearch');
+      const infractionsFilterSeverity = document.getElementById('infractionsFilterSeverity');
+      const infractionsFilterCategory = document.getElementById('infractionsFilterCategory');
+      const clearActionForm = document.getElementById('clearActionForm');
+      const clearInfractionForm = document.getElementById('clearInfractionForm');
+      const recentPlayers = document.getElementById('recentPlayers');
+      const staffMembers = document.getElementById('staffMembers');
+      const gameLogsSearch = document.getElementById('gameLogsSearch');
+      const gameLogsFilter = document.getElementById('gameLogsFilter');
+      const actionLogsSearch = document.getElementById('actionLogsSearch');
+      const actionLogsFilter = document.getElementById('actionLogsFilter');
+      const infractionLogsSearch = document.getElementById('infractionLogsSearch');
+      const infractionLogsFilter = document.getElementById('infractionLogsFilter');
+      const shiftLogsSearch = document.getElementById('shiftLogsSearch');
+      const shiftLogsFilter = document.getElementById('shiftLogsFilter');
+      const dpsSection = document.getElementById('dpsSection');
+      const dpsStatus = document.getElementById('dpsStatus');
+      const dpsSearch = document.getElementById('dpsSearch');
+      const dpsFilterStatus = document.getElementById('dpsFilterStatus');
+      const dpsFilterType = document.getElementById('dpsFilterType');
+      const dpsDashboardBody = document.getElementById('dpsDashboardBody');
+      const investigationSearch = document.getElementById('investigationSearch');
+      const investigationFilterStatus = document.getElementById('investigationFilterStatus');
+      const investigationFilterPriority = document.getElementById('investigationFilterPriority');
+      const investigationsTableBody = document.getElementById('investigationsTableBody');
+      const investigationsPagination = document.getElementById('investigationsPagination');
+      const auditSearch = document.getElementById('auditSearch');
+      const auditFilterStatus = document.getElementById('auditFilterStatus');
+      const auditFilterResult = document.getElementById('auditFilterResult');
+      const auditsTableBody = document.getElementById('auditsTableBody');
+      const auditsPagination = document.getElementById('auditsPagination');
+      const complaintSearch = document.getElementById('complaintSearch');
+      const complaintFilterStatus = document.getElementById('complaintFilterStatus');
+      const complaintFilterType = document.getElementById('complaintFilterType');
+      const complaintsTableBody = document.getElementById('complaintsTableBody');
+      const complaintsPagination = document.getElementById('complaintsPagination');
+      const policySearch = document.getElementById('policySearch');
+      const policyFilterCategory = document.getElementById('policyFilterCategory');
+      const policyAccordion = document.getElementById('policyAccordion');
+      const newInvestigationBtn = document.getElementById('newInvestigationBtn');
+      const newAuditBtn = document.getElementById('newAuditBtn');
+      const newComplaintBtn = document.getElementById('newComplaintBtn');
+      const newPolicyBtn = document.getElementById('newPolicyBtn');
       const erlcStatus = document.getElementById('erlcStatus');
       const erlcServerName = document.getElementById('erlcServerName');
       const erlcPlayers = document.getElementById('erlcPlayers');
@@ -667,13 +1333,6 @@
         return 'action-default';
       }
 
-      function renderActivity(elementId, entries, formatter) {
-        const element = document.getElementById(elementId);
-        element.innerHTML = entries.length
-          ? entries.map(formatter).join('')
-          : '<p class="empty-feed">No records yet.</p>';
-      }
-
       function severityClass(severity) {
         const s = (severity || 'standard').toLowerCase();
         if (s === 'critical') return 'severity-critical';
@@ -681,74 +1340,254 @@
         return 'severity-standard';
       }
 
+      let operationsData = { shifts: [], actions: [], infractions: [], gameLogs: [] };
+      let shiftHistoryPage = 1;
+      let actionsPage = 1;
+      let infractionsPage = 1;
+      let investigationsPage = 1;
+      let auditsPage = 1;
+      let complaintsPage = 1;
+      const pageSize = 5;
+      let activeShiftState = null;
+      let shiftTimerInterval = null;
+      let dpsRecords = { investigations: [], audits: [], complaints: [], policies: [] };
+
+      function renderPagination(container, page, total, onPageChange) {
+        const pages = Math.max(1, Math.ceil(total / pageSize));
+        const current = Math.min(page, pages);
+        const start = total === 0 ? 0 : ((current - 1) * pageSize) + 1;
+        const end = Math.min(total, current * pageSize);
+        container.innerHTML = '';
+        const previous = document.createElement('button');
+        previous.type = 'button';
+        previous.textContent = 'Previous';
+        previous.disabled = current === 1;
+        previous.addEventListener('click', () => onPageChange(current - 1));
+        const label = document.createElement('span');
+        label.textContent = `${start}-${end} of ${total}`;
+        const next = document.createElement('button');
+        next.type = 'button';
+        next.textContent = 'Next';
+        next.disabled = current === pages;
+        next.addEventListener('click', () => onPageChange(current + 1));
+        container.append(previous, label, next);
+      }
+
+      function formatHoursMinutes(minutes) {
+        const total = Number(minutes || 0);
+        const hours = Math.floor(total / 60);
+        const remaining = total % 60;
+        return `${hours}h ${remaining}m`;
+      }
+
+      function shiftStatus(s) {
+        if (!s.endedAt) return 'Active';
+        if (s.flagged || s.status === 'flagged') return 'Flagged';
+        return 'Completed';
+      }
+
       function renderShiftHistory(shifts) {
-        if (!shifts || shifts.length === 0) {
-          shiftHistoryEl.innerHTML = '<p class="empty-feed">No shifts logged yet.</p>';
-          return;
-        }
-        const rows = shifts.map((s) => {
+        const query = shiftHistorySearch.value.trim().toLowerCase();
+        const filter = shiftHistoryFilter.value;
+        const filtered = (shifts || []).filter((s) => {
+          const status = shiftStatus(s);
+          const searchable = [s.staffName, s.location, s.vehicle, s.startedAt, s.endedAt]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+          return (!query || searchable.includes(query)) &&
+            (filter === 'all' || (filter === 'active' && status === 'Active') ||
+              (filter === 'completed' && status === 'Completed') ||
+              (filter === 'flagged' && status === 'Flagged'));
+        });
+        shiftHistoryPage = Math.min(shiftHistoryPage, Math.max(1, Math.ceil(filtered.length / pageSize)));
+        const visible = filtered.slice((shiftHistoryPage - 1) * pageSize, shiftHistoryPage * pageSize);
+        shiftHistoryTableBody.innerHTML = visible.length ? visible.map((s) => {
           const started = new Date(s.startedAt);
           const ended = s.endedAt ? new Date(s.endedAt) : null;
-          const duration = s.durationMinutes
-            ? `${Math.floor(s.durationMinutes / 60)}h ${s.durationMinutes % 60}m`
-            : ended
-              ? formatDuration((ended - started) / 1000)
-              : 'In progress';
-          const statusClass = ended ? 'shift-ended' : 'shift-active';
-          const statusLabel = ended ? 'Ended' : 'Active';
-          return `
-            <div class="shift-history-row ${statusClass}">
-              <span class="shift-name">${escapeHtml(s.staffName || 'Unknown')}</span>
-              <span class="shift-dates">${started.toLocaleDateString()} ${ended ? '→ ' + ended.toLocaleDateString() : ''}</span>
-              <span class="shift-duration">${duration}</span>
-              <span class="shift-status-badge">${statusLabel}</span>
-            </div>`;
+          const duration = s.durationMinutes ? formatHoursMinutes(s.durationMinutes) : ended ? formatDuration((ended - started) / 1000) : 'In progress';
+          const status = shiftStatus(s);
+          return `<tr>
+            <td>${started.toLocaleDateString()}</td>
+            <td>${started.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+            <td>${ended ? ended.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+            <td>${duration}</td>
+            <td>${escapeHtml(s.location || '—')}</td>
+            <td>${escapeHtml(s.vehicle || '—')}</td>
+            <td><span class="badge ${status === 'Active' ? 'badge-green' : status === 'Flagged' ? 'badge-red' : 'badge-gray'}">${status}</span></td>
+            <td><button class="btn btn-sm btn-secondary" type="button" data-shift-id="${escapeHtml(s.id)}">View</button></td>
+          </tr>`;
+        }).join('') : '<tr><td colspan="8" class="empty-feed">No shifts match these filters.</td></tr>';
+        renderPagination(shiftHistoryPagination, shiftHistoryPage, filtered.length, (page) => {
+          shiftHistoryPage = page;
+          renderShiftHistory(operationsData.shifts);
         });
-        shiftHistoryEl.innerHTML = `<div class="shift-history-list">${rows.join('')}</div>`;
       }
 
-      let shiftTimerInterval = null;
-      function startShiftTimer(startedAt) {
-        if (shiftTimerInterval) clearInterval(shiftTimerInterval);
-        shiftTimerEl.classList.remove('hidden');
-        shiftTimerInterval = setInterval(() => {
-          const elapsed = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000);
-          const h = Math.floor(elapsed / 3600);
-          const m = Math.floor((elapsed % 3600) / 60);
-          const s = elapsed % 60;
-          shiftTimerEl.textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-        }, 1000);
+      function renderActionsTable(actions) {
+        const query = actionsSearch.value.trim().toLowerCase();
+        const type = actionsFilterType.value;
+        const status = actionsFilterStatus.value;
+        const filtered = (actions || []).filter((entry) => {
+          const searchable = [entry.type, entry.target, entry.reason, entry.actorUsername, entry.status]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+          return (!query || searchable.includes(query)) &&
+            (type === 'all' || entry.type === type) &&
+            (status === 'all' || entry.status === status);
+        });
+        actionsPage = Math.min(actionsPage, Math.max(1, Math.ceil(filtered.length / pageSize)));
+        const visible = filtered.slice((actionsPage - 1) * pageSize, actionsPage * pageSize);
+        actionsTableBody.innerHTML = visible.length ? visible.map((entry) => `<tr>
+          <td><span class="${actionTypeClass(entry.type)}">${escapeHtml(entry.type)}</span></td>
+          <td>${escapeHtml(entry.target)}</td>
+          <td>${escapeHtml(entry.reason)}</td>
+          <td>${escapeHtml(entry.severity || '—')}</td>
+          <td>${escapeHtml(entry.duration || '—')}</td>
+          <td>${escapeHtml(entry.actorUsername)}</td>
+          <td>${new Date(entry.createdAt).toLocaleString()}</td>
+          <td><span class="badge ${entry.status === 'pending' ? 'badge-gold' : 'badge-green'}">${escapeHtml(entry.status)}</span></td>
+          <td>${entry.type === 'ban-bolo' && entry.status === 'pending' && canCompleteBanBolo ? `<button class="btn btn-sm btn-confirm" type="button" data-complete-action="${escapeHtml(entry.id)}">Complete</button>` : '—'}</td>
+        </tr>`).join('') : '<tr><td colspan="9" class="empty-feed">No actions match these filters.</td></tr>';
+        renderPagination(actionsPagination, actionsPage, filtered.length, (page) => {
+          actionsPage = page;
+          renderActionsTable(operationsData.actions);
+        });
       }
 
-      function stopShiftTimer() {
-        if (shiftTimerInterval) clearInterval(shiftTimerInterval);
-        shiftTimerInterval = null;
-        shiftTimerEl.classList.add('hidden');
-        shiftTimerEl.textContent = '--:--:--';
+      function renderInfractionsTable(infractions) {
+        const query = infractionsSearch.value.trim().toLowerCase();
+        const severity = infractionsFilterSeverity.value;
+        const category = infractionsFilterCategory.value;
+        const filtered = (infractions || []).filter((entry) => {
+          const searchable = [entry.target, entry.reason, entry.category, entry.severity, entry.createdBy]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+          return (!query || searchable.includes(query)) &&
+            (severity === 'all' || entry.severity === severity) &&
+            (category === 'all' || entry.category === category);
+        });
+        infractionsPage = Math.min(infractionsPage, Math.max(1, Math.ceil(filtered.length / pageSize)));
+        const visible = filtered.slice((infractionsPage - 1) * pageSize, infractionsPage * pageSize);
+        infractionsTableBody.innerHTML = visible.length ? visible.map((entry) => `<tr>
+          <td>${escapeHtml(entry.id)}</td>
+          <td>${escapeHtml(entry.target)}</td>
+          <td>${escapeHtml(entry.category || 'other')}</td>
+          <td><span class="${severityClass(entry.severity)}">${escapeHtml(entry.severity)}</span></td>
+          <td>${escapeHtml(entry.recommendedAction || 'None')}</td>
+          <td><span class="badge badge-gray">Open</span></td>
+          <td>${escapeHtml(entry.createdBy || '—')}</td>
+          <td>${new Date(entry.createdAt).toLocaleDateString()}</td>
+          <td>${entry.dmSent === false ? 'Failed' : 'Sent'}</td>
+          <td><button class="btn btn-sm btn-secondary" type="button" data-infraction-id="${escapeHtml(entry.id)}">View</button></td>
+        </tr>`).join('') : '<tr><td colspan="10" class="empty-feed">No infractions match these filters.</td></tr>';
+        renderPagination(infractionsPagination, infractionsPage, filtered.length, (page) => {
+          infractionsPage = page;
+          renderInfractionsTable(operationsData.infractions);
+        });
       }
 
-      function renderBanBoloList(bulos) {
-        if (!canCompleteBanBolo) return;
-        if (!bulos || bulos.length === 0) {
-          banBoloSection.classList.add('hidden');
-          return;
-        }
-        banBoloSection.classList.remove('hidden');
-        const items = bulos.map((bolo) => `
-          <div class="ban-bolo-item" data-id="${escapeHtml(bolo.id)}">
-            <div class="ban-bolo-info">
-              <strong class="${actionTypeClass(bolo.type)}">BAN BOLO</strong>
-              <span class="ban-bolo-target">${escapeHtml(bolo.target)}</span>
-              <span class="ban-bolo-reason">${escapeHtml(bolo.reason)}</span>
-              <small class="ban-bolo-actor">Filed by ${escapeHtml(bolo.actorUsername)} · ${new Date(bolo.createdAt).toLocaleString()}</small>
-            </div>
-            <button class="btn btn-sm btn-confirm" type="button" onclick="completeBanBolo('${escapeHtml(bolo.id)}')">Complete ban</button>
-          </div>
-        `).join('');
-        banBoloList.innerHTML = items;
+      function renderShiftStats(shifts) {
+        const completed = (shifts || []).filter((s) => s.endedAt);
+        const minutes = completed.reduce((total, s) => total + Number(s.durationMinutes || 0), 0);
+        document.getElementById('statShiftsCount').textContent = String(completed.length);
+        document.getElementById('statTotalHours').textContent = formatHoursMinutes(minutes);
+        document.getElementById('statAvgHours').textContent = completed.length ? formatHoursMinutes(minutes / completed.length) : '0h 0m';
+        document.getElementById('statLongestShift').textContent = formatHoursMinutes(Math.max(0, ...completed.map((s) => Number(s.durationMinutes || 0))));
+      }
+
+      function renderActivity(elementId, entries, formatter) {
+        const element = document.getElementById(elementId);
+        const records = Array.isArray(entries) ? entries : [];
+        element.innerHTML = records.length
+          ? records.map(formatter).join('')
+          : '<p class="empty-feed">No records yet.</p>';
+      }
+
+      function renderDpsDashboard() {
+        const openInvestigations = dpsRecords.investigations.filter((entry) => entry.status !== 'closed').length;
+        const pendingAudits = dpsRecords.audits.filter((entry) => ['pending', 'in-progress'].includes(entry.status)).length;
+        const openComplaints = dpsRecords.complaints.filter((entry) => ['open', 'investigating'].includes(entry.status)).length;
+        const resolved = dpsRecords.investigations.concat(dpsRecords.complaints).filter((entry) => ['closed', 'resolved', 'dismissed'].includes(entry.status)).length;
+        document.getElementById('dpsOpenCases').textContent = String(openInvestigations);
+        document.getElementById('dpsPendingAudits').textContent = String(pendingAudits);
+        document.getElementById('dpsOpenComplaints').textContent = String(openComplaints);
+        document.getElementById('dpsResolvedThisWeek').textContent = String(resolved);
+        const query = dpsSearch.value.trim().toLowerCase();
+        const status = dpsFilterStatus.value;
+        const type = dpsFilterType.value;
+        const records = dpsRecords.investigations.map((entry) => ({ ...entry, recordType: 'Investigation' }))
+          .concat(dpsRecords.audits.map((entry) => ({ ...entry, recordType: 'Shift Audit' })))
+          .concat(dpsRecords.complaints.map((entry) => ({ ...entry, recordType: 'Complaint' })))
+          .filter((entry) => {
+            const searchable = [entry.recordType, entry.caseId || entry.auditId || entry.complaintId, entry.subject, entry.status, entry.priority, entry.assigned]
+              .filter(Boolean)
+              .join(' ')
+              .toLowerCase();
+            return (!query || searchable.includes(query)) &&
+              (status === 'all' || entry.status === status) &&
+              (type === 'all' || (type === 'investigation' && entry.recordType === 'Investigation') ||
+                (type === 'audit' && entry.recordType === 'Shift Audit') ||
+                (type === 'complaint' && entry.recordType === 'Complaint'));
+          });
+        dpsDashboardBody.innerHTML = records.length ? records.map((entry) => `<tr>
+          <td>${entry.recordType}</td>
+          <td>${escapeHtml(entry.caseId || entry.auditId || entry.complaintId)}</td>
+          <td>${escapeHtml(entry.subject)}</td>
+          <td><span class="badge ${entry.status === 'closed' || entry.status === 'resolved' ? 'badge-green' : entry.status === 'pending-review' || entry.status === 'pending' ? 'badge-gold' : 'badge-blue'}">${escapeHtml(entry.status)}</span></td>
+          <td>${escapeHtml(entry.priority || '—')}</td>
+          <td>${escapeHtml(entry.assigned || 'Unassigned')}</td>
+          <td>${new Date(entry.openedAt || entry.createdAt).toLocaleDateString()}</td>
+          <td><button class="btn btn-sm btn-secondary" type="button" data-dps-id="${escapeHtml(entry.caseId || entry.auditId || entry.complaintId)}">View</button></td>
+        </tr>`).join('') : '<tr><td colspan="8" class="empty-feed">No DPS records match these filters.</td></tr>';
+      }
+
+      function renderDpsTables() {
+        const investigationQuery = investigationSearch.value.trim().toLowerCase();
+        const investigationStatus = investigationFilterStatus.value;
+        const investigationPriority = investigationFilterPriority.value;
+        const investigations = dpsRecords.investigations.filter((entry) => [entry.caseId, entry.subject, entry.allegation, entry.status, entry.priority, entry.investigator].join(' ').toLowerCase().includes(investigationQuery) && (investigationStatus === 'all' || entry.status === investigationStatus) && (investigationPriority === 'all' || entry.priority === investigationPriority));
+        investigationsPage = Math.min(investigationsPage, Math.max(1, Math.ceil(investigations.length / pageSize)));
+        const visibleInvestigations = investigations.slice((investigationsPage - 1) * pageSize, investigationsPage * pageSize);
+        investigationsTableBody.innerHTML = visibleInvestigations.length ? visibleInvestigations.map((entry) => `<tr><td>${escapeHtml(entry.caseId)}</td><td>${escapeHtml(entry.subject)}</td><td>${escapeHtml(entry.allegation)}</td><td><span class="badge ${entry.status === 'closed' ? 'badge-green' : entry.status === 'pending-review' ? 'badge-gold' : 'badge-blue'}">${escapeHtml(entry.status)}</span></td><td>${escapeHtml(entry.priority)}</td><td>${escapeHtml(entry.investigator)}</td><td>${new Date(entry.openedAt).toLocaleDateString()}</td><td>${new Date(entry.updatedAt).toLocaleDateString()}</td><td><button class="btn btn-sm btn-secondary" type="button" data-dps-id="${escapeHtml(entry.caseId)}">View</button></td></tr>`).join('') : '<tr><td colspan="9" class="empty-feed">No investigations found.</td></tr>';
+        renderPagination(investigationsPagination, investigationsPage, investigations.length, (page) => { investigationsPage = page; renderDpsTables(); });
+
+        const auditQuery = auditSearch.value.trim().toLowerCase();
+        const auditStatus = auditFilterStatus.value;
+        const auditResult = auditFilterResult.value;
+        const audits = dpsRecords.audits.filter((entry) => [entry.auditId, entry.staffMember, entry.status, entry.result, entry.auditor, entry.flags].join(' ').toLowerCase().includes(auditQuery) && (auditStatus === 'all' || entry.status === auditStatus) && (auditResult === 'all' || entry.result === auditResult));
+        auditsPage = Math.min(auditsPage, Math.max(1, Math.ceil(audits.length / pageSize)));
+        const visibleAudits = audits.slice((auditsPage - 1) * pageSize, auditsPage * pageSize);
+        auditsTableBody.innerHTML = visibleAudits.length ? visibleAudits.map((entry) => `<tr><td>${escapeHtml(entry.auditId)}</td><td>${escapeHtml(entry.staffMember)}</td><td>${new Date(entry.shiftDate).toLocaleDateString()}</td><td><span class="badge ${entry.status === 'completed' ? 'badge-green' : entry.status === 'flagged' ? 'badge-red' : 'badge-gold'}">${escapeHtml(entry.status)}</span></td><td>${escapeHtml(entry.result)}</td><td>${escapeHtml(entry.auditor)}</td><td>${escapeHtml(entry.flags || 'None')}</td><td>${entry.completedAt ? new Date(entry.completedAt).toLocaleDateString() : '—'}</td><td><button class="btn btn-sm btn-secondary" type="button" data-dps-id="${escapeHtml(entry.auditId)}">View</button></td></tr>`).join('') : '<tr><td colspan="9" class="empty-feed">No audits found.</td></tr>';
+        renderPagination(auditsPagination, auditsPage, audits.length, (page) => { auditsPage = page; renderDpsTables(); });
+
+        const complaintQuery = complaintSearch.value.trim().toLowerCase();
+        const complaintStatus = complaintFilterStatus.value;
+        const complaintType = complaintFilterType.value;
+        const complaints = dpsRecords.complaints.filter((entry) => [entry.complaintId, entry.complainant, entry.subject, entry.type, entry.status, entry.category, entry.assigned].join(' ').toLowerCase().includes(complaintQuery) && (complaintStatus === 'all' || entry.status === complaintStatus) && (complaintType === 'all' || entry.type === complaintType));
+        complaintsPage = Math.min(complaintsPage, Math.max(1, Math.ceil(complaints.length / pageSize)));
+        const visibleComplaints = complaints.slice((complaintsPage - 1) * pageSize, complaintsPage * pageSize);
+        complaintsTableBody.innerHTML = visibleComplaints.length ? visibleComplaints.map((entry) => `<tr><td>${escapeHtml(entry.complaintId)}</td><td>${escapeHtml(entry.complainant)}</td><td>${escapeHtml(entry.subject)}</td><td>${escapeHtml(entry.type)}</td><td><span class="badge ${entry.status === 'resolved' || entry.status === 'dismissed' ? 'badge-green' : 'badge-blue'}">${escapeHtml(entry.status)}</span></td><td>${escapeHtml(entry.category)}</td><td>${escapeHtml(entry.assigned || 'Unassigned')}</td><td>${new Date(entry.createdAt).toLocaleDateString()}</td><td><button class="btn btn-sm btn-secondary" type="button" data-dps-id="${escapeHtml(entry.complaintId)}">View</button></td></tr>`).join('') : '<tr><td colspan="9" class="empty-feed">No complaints found.</td></tr>';
+        renderPagination(complaintsPagination, complaintsPage, complaints.length, (page) => { complaintsPage = page; renderDpsTables(); });
+      }
+
+      function renderPolicyDocuments() {
+        const query = policySearch.value.trim().toLowerCase();
+        const category = policyFilterCategory.value;
+        const policies = dpsRecords.policies.filter((entry) => [entry.title, entry.category, entry.summary].join(' ').toLowerCase().includes(query) && (category === 'all' || entry.category === category));
+        policyAccordion.innerHTML = policies.length ? policies.map((entry) => `<details class="accordion" open><summary><span>${escapeHtml(entry.title)} <span class="badge badge-blue">${escapeHtml(entry.category)}</span></span><span>${escapeHtml(entry.version)}</span></summary><div class="accordion-content"><p>${escapeHtml(entry.summary)}</p><p><strong>Effective:</strong> ${escapeHtml(entry.effectiveDate)}</p></div></details>`).join('') : '<div class="dps-empty">No policy documents match these filters.</div>';
+      }
+
+      function renderDps() {
+        renderDpsDashboard();
+        renderDpsTables();
+        renderPolicyDocuments();
       }
 
       function renderOperations(data) {
+        operationsData = data;
         const quotaSeconds = data.weeklyQuotaSeconds || 7200;
         const usedSeconds = data.weeklyShiftSeconds || 0;
         const percentage = Math.min(100, Math.round((usedSeconds / quotaSeconds) * 100));
@@ -756,53 +1595,47 @@
         document.getElementById('quotaBar').style.width = `${percentage}%`;
         document.getElementById('quotaStatus').className = 'status-pill' + (percentage >= 100 ? ' success' : percentage >= 50 ? ' warning' : '');
 
-        if (data.activeShift) {
+        activeShiftState = data.activeShift || null;
+        if (activeShiftState) {
           startShiftBtn.disabled = true;
           stopShiftBtn.disabled = false;
-          document.getElementById('shiftStatus').textContent = `Active since ${new Date(data.activeShift.startedAt).toLocaleString()}`;
-          startShiftTimer(data.activeShift.startedAt);
+          updateShiftBtn.disabled = false;
+          activeShiftControls.style.display = '';
+          document.getElementById('shiftStatus').textContent = `Active since ${new Date(activeShiftState.startedAt).toLocaleString()}`;
+          startShiftTimer(activeShiftState.startedAt);
         } else {
           startShiftBtn.disabled = false;
           stopShiftBtn.disabled = true;
+          updateShiftBtn.disabled = true;
+          activeShiftControls.style.display = 'none';
           document.getElementById('shiftStatus').textContent = 'No active shift.';
           stopShiftTimer();
         }
 
         const canLogBan = data.canLogBan || false;
         const isInfraction = data.canLogInfraction || false;
+        document.getElementById('actionPermission').textContent = canLogBan ? 'Administrator+: full moderation logging including bans.' : 'Staff: BOLOs, warnings, kicks, and pending ban BOLOs. Administrator+ required for bans and completing BOLOs.';
+        document.getElementById('infractionPermission').textContent = isInfraction ? 'Management access enabled.' : 'Management+ access required.';
+        actionTypeSelect.querySelectorAll('option[data-admin="true"]').forEach((opt) => { opt.disabled = !canLogBan; });
+        if (!canLogBan && actionTypeSelect.value.includes('ban') && !actionTypeSelect.value.includes('bolo')) actionTypeSelect.value = 'ban-bolo';
+        infractionForm.querySelectorAll('input, textarea, select, button').forEach((control) => { control.disabled = !isInfraction; });
 
-        document.getElementById('actionPermission').textContent = canLogBan
-          ? 'Administrator+: full moderation logging including bans.'
-          : 'Staff: BOLOs, warnings, kicks, and pending ban BOLOs. Administrator+ required for bans and completing BOLOs.';
-        document.getElementById('infractionPermission').textContent = isInfraction
-          ? 'Management access enabled.'
-          : 'Management+ access required.';
-
-        actionTypeSelect.querySelectorAll('option[data-admin="true"]').forEach((opt) => {
-          opt.disabled = !canLogBan;
-        });
-        if (!canLogBan && actionTypeSelect.value.includes('ban') && !actionTypeSelect.value.includes('bolo')) {
-          actionTypeSelect.value = 'ban-bolo';
-        }
-        infractionForm.querySelectorAll('input, textarea, select, button').forEach((control) => {
-          control.disabled = !isInfraction;
-        });
-
+        renderShiftStats(data.shifts || []);
         renderShiftHistory(data.shifts || []);
-        renderBanBoloList(data.pendingBanBolos || []);
-
+        renderActionsTable(data.actions || []);
+        renderInfractionsTable(data.infractions || []);
         renderActivity('gameLogsFeed', data.gameLogs, (entry) => `<div class="activity-item"><strong>${escapeHtml(entry.type.toUpperCase())}</strong><span>${escapeHtml(entry.player)}${entry.command ? ` · ${escapeHtml(entry.command)}` : ''}${entry.target ? ` → ${escapeHtml(entry.target)}` : ''}</span><small>${new Date(entry.createdAt).toLocaleString()}</small></div>`);
-        renderActivity('actionsFeed', data.actions, (entry) => {
-          const statusBadge = entry.status === 'pending' ? '<span class="status-badge pending">Pending</span>' : '<span class="status-badge completed">Completed</span>';
-          return `<div class="activity-item"><strong class="${actionTypeClass(entry.type)}">${escapeHtml(entry.type.toUpperCase())}</strong><span>${escapeHtml(entry.target)} · ${escapeHtml(entry.reason)}</span><small>${escapeHtml(entry.actorUsername)} · ${new Date(entry.createdAt).toLocaleString()} ${statusBadge}</small></div>`;
-        });
-        renderActivity('infractionsFeed', data.infractions, (entry) => `<div class="activity-item"><strong class="${severityClass(entry.severity)}">${escapeHtml(entry.severity.toUpperCase())}</strong><span>${escapeHtml(entry.target)} · ${escapeHtml(entry.reason)}</span><small>${escapeHtml(entry.createdBy || entry.actorUsername)} · ${new Date(entry.createdAt).toLocaleString()}${entry.dmSent === false ? ' · ⚠️ DM failed' : ''}</small></div>`);
-
+        renderActivity('actionsFeed', data.actions, (entry) => `<div class="activity-item"><strong class="${actionTypeClass(entry.type)}">${escapeHtml(entry.type.toUpperCase())}</strong><span>${escapeHtml(entry.target)} · ${escapeHtml(entry.reason)}</span><small>${escapeHtml(entry.actorUsername)} · ${new Date(entry.createdAt).toLocaleString()} <span class="status-badge ${entry.status === 'pending' ? 'pending' : 'completed'}">${escapeHtml(entry.status)}</span></small></div>`);
+        renderActivity('infractionsFeed', data.infractions, (entry) => `<div class="activity-item"><strong class="${severityClass(entry.severity)}">${escapeHtml(entry.severity.toUpperCase())}</strong><span>${escapeHtml(entry.target)} · ${escapeHtml(entry.reason)}</span><small>${escapeHtml(entry.createdBy || entry.actorUsername)} · ${new Date(entry.createdAt).toLocaleString()}${entry.dmSent === false ? ' · DM failed' : ''}</small></div>`);
+        recentPlayers.innerHTML = [...new Set((data.actions || []).map((entry) => entry.target).filter(Boolean))].map((name) => `<option value="${escapeHtml(name)}"></option>`).join('');
+        staffMembers.innerHTML = [...new Set((data.infractions || []).map((entry) => entry.target).filter(Boolean))].map((name) => `<option value="${escapeHtml(name)}"></option>`).join('');
         isMgmt = data.canLogInfraction || false;
+        dpsSection.classList.toggle('hidden', !isMgmt);
+        dpsStatus.textContent = isMgmt ? 'Management+' : 'Restricted';
+        dpsStatus.className = `status-pill ${isMgmt ? 'success' : 'warning'}`;
         erlcSection.classList.toggle('hidden', !isMgmt);
-      }
-
-      var canCompleteBanBolo = false;
+        renderDps();
+      }      var canCompleteBanBolo = false;
       var isMgmt = false;
 
       async function refreshErlcServer() {
@@ -871,11 +1704,302 @@
         }
       }
 
+      function openDpsModal(title, fields, onSubmit) {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay active';
+        overlay.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="dpsModalTitle">
+          <div class="modal-header"><h3 id="dpsModalTitle">${escapeHtml(title)}</h3><button class="modal-close" type="button" aria-label="Close">×</button></div>
+          <form>
+            <div class="modal-body"></div>
+            <div class="modal-footer"><button class="btn btn-secondary modal-cancel" type="button">Cancel</button><button class="btn btn-primary modal-submit" type="submit">Save record</button></div>
+          </form>
+        </div>`;
+        document.body.appendChild(overlay);
+        const form = overlay.querySelector('form');
+        form.innerHTML = fields.map((field) => {
+          const required = field.required === false ? '' : 'required';
+          const control = field.type === 'textarea'
+            ? `<textarea name="${field.name}" ${required} rows="3"></textarea>`
+            : field.type === 'select'
+              ? `<select name="${field.name}" ${required}>${(field.options || []).map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`).join('')}</select>`
+              : `<input name="${field.name}" type="${field.type || 'text'}" ${required}>`;
+          return `<label>${escapeHtml(field.label)}${control}</label>`;
+        }).join('');
+        const close = () => overlay.remove();
+        overlay.querySelector('.modal-close').addEventListener('click', close);
+        overlay.querySelector('.modal-cancel').addEventListener('click', close);
+        overlay.addEventListener('click', (event) => { if (event.target === overlay) close(); });
+        form.addEventListener('submit', (event) => {
+          event.preventDefault();
+          onSubmit(Object.fromEntries(new FormData(form)));
+          close();
+        });
+        overlay.querySelector('.modal-close').focus();
+      }
+
+      function createDpsRecord(type, values) {
+        const now = new Date().toISOString();
+        if (type === 'investigation') {
+          dpsRecords.investigations.unshift({
+            caseId: `DPS-${String(dpsRecords.investigations.length + 1).padStart(3, '0')}`,
+            subject: values.subject,
+            allegation: values.allegation,
+            status: values.status || 'open',
+            priority: values.priority,
+            investigator: values.investigator || 'Unassigned',
+            openedAt: now,
+            updatedAt: now,
+          });
+        }
+        if (type === 'audit') {
+          dpsRecords.audits.unshift({
+            auditId: `AUD-${String(dpsRecords.audits.length + 1).padStart(3, '0')}`,
+            staffMember: values.staffMember,
+            shiftDate: values.shiftDate || now,
+            status: values.status || 'pending',
+            result: values.result || 'needs-review',
+            auditor: values.auditor || 'Unassigned',
+            flags: values.flags || 'None',
+            createdAt: now,
+          });
+        }
+        if (type === 'complaint') {
+          dpsRecords.complaints.unshift({
+            complaintId: `CMP-${String(dpsRecords.complaints.length + 1).padStart(3, '0')}`,
+            complainant: values.complainant,
+            subject: values.subject,
+            type: values.type,
+            status: values.status || 'open',
+            category: values.category,
+            assigned: values.assigned || 'Unassigned',
+            createdAt: now,
+          });
+        }
+        if (type === 'policy') {
+          dpsRecords.policies.unshift({
+            title: values.title,
+            category: values.category,
+            version: values.version || '1.0',
+            summary: values.summary,
+            effectiveDate: values.effectiveDate || now,
+          });
+        }
+        investigationsPage = 1;
+        auditsPage = 1;
+        complaintsPage = 1;
+        renderDps();
+      }
+
+      function bindDpsButtons() {
+        newInvestigationBtn.addEventListener('click', () => openDpsModal('New Investigation', [
+          { label: 'Subject', name: 'subject' },
+          { label: 'Allegation', name: 'allegation', type: 'textarea' },
+          { label: 'Priority', name: 'priority', type: 'select', options: [['low', 'Low'], ['medium', 'Medium'], ['high', 'High'], ['critical', 'Critical']] },
+          { label: 'Status', name: 'status', type: 'select', options: [['open', 'Open'], ['in-progress', 'In Progress'], ['pending-review', 'Pending Review'], ['closed', 'Closed']] },
+          { label: 'Investigator', name: 'investigator' },
+        ], (values) => createDpsRecord('investigation', values)));
+        newAuditBtn.addEventListener('click', () => openDpsModal('Initiate Shift Audit', [
+          { label: 'Staff Member', name: 'staffMember' },
+          { label: 'Shift Date', name: 'shiftDate', type: 'date' },
+          { label: 'Result', name: 'result', type: 'select', options: [['pass', 'Pass'], ['fail', 'Fail'], ['needs-review', 'Needs Review']] },
+          { label: 'Auditor', name: 'auditor' },
+          { label: 'Flags', name: 'flags' },
+        ], (values) => createDpsRecord('audit', values)));
+        newComplaintBtn.addEventListener('click', () => openDpsModal('New Complaint', [
+          { label: 'Complainant', name: 'complainant' },
+          { label: 'Subject', name: 'subject' },
+          { label: 'Type', name: 'type', type: 'select', options: [['internal', 'Internal'], ['external', 'External'], ['anonymous', 'Anonymous']] },
+          { label: 'Category', name: 'category', type: 'select', options: [['conduct', 'Conduct'], ['operations', 'Operations'], ['discipline', 'Discipline'], ['training', 'Training'], ['general', 'General']] },
+          { label: 'Assigned', name: 'assigned' },
+        ], (values) => createDpsRecord('complaint', values)));
+        newPolicyBtn.addEventListener('click', () => openDpsModal('New Policy Document', [
+          { label: 'Title', name: 'title' },
+          { label: 'Category', name: 'category', type: 'select', options: [['conduct', 'Conduct'], ['operations', 'Operations'], ['discipline', 'Discipline'], ['training', 'Training'], ['general', 'General']] },
+          { label: 'Version', name: 'version' },
+          { label: 'Summary', name: 'summary', type: 'textarea' },
+          { label: 'Effective Date', name: 'effectiveDate', type: 'date' },
+        ], (values) => createDpsRecord('policy', values)));
+      }
+
+      function setSelectOptions(select, options) {
+        select.innerHTML = options.map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`).join('');
+      }
+
+      function bindDpsFilters() {
+        setSelectOptions(investigationFilterPriority, [['all', 'All Priorities'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High'], ['critical', 'Critical']]);
+        setSelectOptions(auditFilterResult, [['all', 'All Results'], ['pass', 'Pass'], ['fail', 'Fail'], ['needs-review', 'Needs Review']]);
+        setSelectOptions(complaintFilterType, [['all', 'All Types'], ['internal', 'Internal'], ['external', 'External'], ['anonymous', 'Anonymous']]);
+        setSelectOptions(policyFilterCategory, [['all', 'All Categories'], ['conduct', 'Conduct'], ['operations', 'Operations'], ['discipline', 'Discipline'], ['training', 'Training'], ['general', 'General']]);
+        [dpsSearch, dpsFilterStatus, dpsFilterType, investigationSearch, investigationFilterStatus, investigationFilterPriority, auditSearch, auditFilterStatus, auditFilterResult, complaintSearch, complaintFilterStatus, complaintFilterType, policySearch, policyFilterCategory].forEach((control) => {
+          control.addEventListener('input', () => { investigationsPage = 1; auditsPage = 1; complaintsPage = 1; renderDps(); });
+          control.addEventListener('change', () => { investigationsPage = 1; auditsPage = 1; complaintsPage = 1; renderDps(); });
+        });
+      }
+
+      function bindOperationsFilters() {
+        [shiftHistorySearch, shiftHistoryFilter, actionsSearch, actionsFilterType, actionsFilterStatus, infractionsSearch, infractionsFilterSeverity, infractionsFilterCategory].forEach((control) => {
+          control.addEventListener('input', () => { shiftHistoryPage = 1; actionsPage = 1; infractionsPage = 1; renderShiftHistory(operationsData.shifts); renderActionsTable(operationsData.actions); renderInfractionsTable(operationsData.infractions); });
+          control.addEventListener('change', () => { shiftHistoryPage = 1; actionsPage = 1; infractionsPage = 1; renderShiftHistory(operationsData.shifts); renderActionsTable(operationsData.actions); renderInfractionsTable(operationsData.infractions); });
+        });
+        [gameLogsSearch, gameLogsFilter, actionLogsSearch, actionLogsFilter, infractionLogsSearch, infractionLogsFilter, shiftLogsSearch, shiftLogsFilter].forEach((control) => {
+          control.addEventListener('input', renderLogs);
+          control.addEventListener('change', renderLogs);
+        });
+      }
+
+      function renderLogs() {
+        const gameQuery = gameLogsSearch.value.trim().toLowerCase();
+        const gameType = gameLogsFilter.value;
+        const gameLogs = (operationsData.gameLogs || []).filter((entry) => [entry.type, entry.player, entry.command, entry.target, entry.reason].join(' ').toLowerCase().includes(gameQuery) && (gameType === 'all' || entry.type === gameType));
+        renderActivity('gameLogsFeed', gameLogs, (entry) => `<div class="activity-item"><strong>${escapeHtml(entry.type.toUpperCase())}</strong><span>${escapeHtml(entry.player)}${entry.command ? ` · ${escapeHtml(entry.command)}` : ''}${entry.target ? ` → ${escapeHtml(entry.target)}` : ''}</span><small>${new Date(entry.createdAt).toLocaleString()}</small></div>`);
+
+        const actionQuery = actionLogsSearch.value.trim().toLowerCase();
+        const actionType = actionLogsFilter.value;
+        const actions = (operationsData.actions || []).filter((entry) => [entry.type, entry.target, entry.reason, entry.actorUsername, entry.status].join(' ').toLowerCase().includes(actionQuery) && (actionType === 'all' || entry.type === actionType));
+        renderActivity('actionsFeed', actions, (entry) => `<div class="activity-item"><strong class="${actionTypeClass(entry.type)}">${escapeHtml(entry.type.toUpperCase())}</strong><span>${escapeHtml(entry.target)} · ${escapeHtml(entry.reason)}</span><small>${escapeHtml(entry.actorUsername)} · ${new Date(entry.createdAt).toLocaleString()} <span class="status-badge ${entry.status === 'pending' ? 'pending' : 'completed'}">${escapeHtml(entry.status)}</span></small></div>`);
+
+        const infractionQuery = infractionLogsSearch.value.trim().toLowerCase();
+        const infractionSeverity = infractionLogsFilter.value;
+        const infractions = (operationsData.infractions || []).filter((entry) => [entry.target, entry.reason, entry.severity, entry.createdBy].join(' ').toLowerCase().includes(infractionQuery) && (infractionSeverity === 'all' || entry.severity === infractionSeverity));
+        renderActivity('infractionsFeed', infractions, (entry) => `<div class="activity-item"><strong class="${severityClass(entry.severity)}">${escapeHtml(entry.severity.toUpperCase())}</strong><span>${escapeHtml(entry.target)} · ${escapeHtml(entry.reason)}</span><small>${escapeHtml(entry.createdBy || entry.actorUsername)} · ${new Date(entry.createdAt).toLocaleString()}${entry.dmSent === false ? ' · DM failed' : ''}</small></div>`);
+
+        const shiftQuery = shiftLogsSearch.value.trim().toLowerCase();
+        const shiftType = shiftLogsFilter.value;
+        const shifts = (operationsData.shifts || []).filter((entry) => [entry.staffName, entry.startedAt, entry.endedAt, entry.location, entry.vehicle].join(' ').toLowerCase().includes(shiftQuery) && (shiftType === 'all' || (shiftType === 'start' && entry.startedAt) || (shiftType === 'end' && entry.endedAt)));
+        renderActivity('shiftLogsFeed', shifts, (entry) => `<div class="activity-item"><strong>${entry.endedAt ? 'SHIFT END' : 'SHIFT START'}</strong><span>${escapeHtml(entry.staffName)}${entry.location ? ` · ${escapeHtml(entry.location)}` : ''}</span><small>${new Date(entry.startedAt).toLocaleString()}${entry.endedAt ? ` → ${new Date(entry.endedAt).toLocaleString()}` : ''}</small></div>`);
+      }
+
+      function bindActionForm() {
+        const actionPresetsData = [
+          { label: 'Routine Warning', type: 'warn', severity: 'standard', reason: 'Professional conduct reminder' },
+          { label: 'Serious Warning', type: 'warn', severity: 'serious', reason: 'Repeated disruption or non-compliance' },
+          { label: 'Short Kick', type: 'kick', duration: '30m', reason: 'Temporary removal to reset the situation' },
+          { label: 'Vehicle BOLO', type: 'bolo', reason: 'Vehicle identification and location required' },
+          { label: 'Pending Ban Review', type: 'ban-bolo', reason: 'Evidence review required before administrative action' },
+        ];
+        actionPresets.innerHTML = actionPresetsData.map((preset, index) => `<button class="preset-btn" type="button" data-preset="${index}"><strong>${preset.label}</strong><span>${preset.type}</span></button>`).join('');
+        actionPresets.addEventListener('click', (event) => {
+          const button = event.target.closest('[data-preset]');
+          if (!button) return;
+          const preset = actionPresetsData[Number(button.dataset.preset)];
+          actionTypeSelect.value = preset.type;
+          actionForm.elements.reason.value = preset.reason;
+          if (preset.severity) actionForm.elements.severity.value = preset.severity;
+          if (preset.duration) actionForm.elements.duration.value = preset.duration;
+          actionTypeSelect.dispatchEvent(new Event('change'));
+          actionForm.elements.target.focus();
+        });
+        actionTypeSelect.addEventListener('change', () => {
+          const type = actionTypeSelect.value;
+          warnSeverityRow.style.display = type === 'warn' ? 'flex' : 'none';
+          kickDurationRow.style.display = type === 'kick' ? 'flex' : 'none';
+          boloDetailsRow.style.display = ['bolo', 'ban-bolo'].includes(type) ? 'flex' : 'none';
+          banDetailsRow.style.display = type === 'ban' ? 'flex' : 'none';
+          customBanDurationLabel.style.display = type === 'ban' && actionForm.elements.banDuration.value === 'custom' ? 'grid' : 'none';
+        });
+        actionForm.elements.banDuration.addEventListener('change', () => {
+          customBanDurationLabel.style.display = actionForm.elements.banDuration.value === 'custom' ? 'grid' : 'none';
+        });
+        clearActionForm.addEventListener('click', () => {
+          actionForm.reset();
+          actionTypeSelect.dispatchEvent(new Event('change'));
+          shiftMessageEl.textContent = 'Moderation form cleared.';
+          shiftMessageEl.className = 'staff-message';
+        });
+      }
+
+      function bindInfractionForm() {
+        const infractionPresetsData = [
+          { category: 'conduct', severity: 'standard', recommendedAction: 'verbal', reason: 'Professional conduct concern' },
+          { category: 'performance', severity: 'serious', recommendedAction: 'written', reason: 'Performance improvement required' },
+          { category: 'attendance', severity: 'serious', recommendedAction: 'suspension', reason: 'Shift attendance or activity concern' },
+          { category: 'abuse', severity: 'critical', recommendedAction: 'removal', reason: 'Authority or command abuse allegation' },
+        ];
+        infractionPresets.innerHTML = infractionPresetsData.map((preset, index) => `<button class="preset-btn" type="button" data-preset="${index}"><strong>${preset.category}</strong><span>${preset.severity}</span></button>`).join('');
+        infractionPresets.addEventListener('click', (event) => {
+          const button = event.target.closest('[data-preset]');
+          if (!button) return;
+          const preset = infractionPresetsData[Number(button.dataset.preset)];
+          infractionForm.elements.category.value = preset.category;
+          infractionForm.elements.severity.value = preset.severity;
+          infractionForm.elements.recommendedAction.value = preset.recommendedAction;
+          infractionForm.elements.reason.value = preset.reason;
+          infractionForm.elements.target.focus();
+        });
+        clearInfractionForm.addEventListener('click', () => {
+          infractionForm.reset();
+          document.getElementById('infractionPermission').textContent = isMgmt ? 'Management access enabled.' : 'Management+ access required.';
+        });
+      }
+
+      function bindTableActions() {
+        actionsTableBody.addEventListener('click', (event) => {
+          const button = event.target.closest('[data-complete-action]');
+          if (button) completeBanBolo(button.dataset.completeAction);
+        });
+        shiftHistoryTableBody.addEventListener('click', (event) => {
+          const button = event.target.closest('[data-shift-id]');
+          if (!button) return;
+          const shift = operationsData.shifts.find((entry) => entry.id === button.dataset.shiftId);
+          if (shift) shiftMessageEl.textContent = `Shift ${shift.staffName || 'record'}: ${shiftStatus(shift).toLowerCase()} · ${shift.durationMinutes ? formatHoursMinutes(shift.durationMinutes) : 'in progress'}`;
+        });
+        infractionsTableBody.addEventListener('click', (event) => {
+          const button = event.target.closest('[data-infraction-id]');
+          if (!button) return;
+          const infraction = operationsData.infractions.find((entry) => entry.id === button.dataset.infractionId);
+          if (infraction) document.getElementById('infractionPermission').textContent = `${infraction.target}: ${infraction.reason}`;
+        });
+        document.addEventListener('click', (event) => {
+          const button = event.target.closest('[data-dps-id]');
+          if (!button) return;
+          const record = dpsRecords.investigations.find((entry) => entry.caseId === button.dataset.dpsId) || dpsRecords.audits.find((entry) => entry.auditId === button.dataset.dpsId) || dpsRecords.complaints.find((entry) => entry.complaintId === button.dataset.dpsId);
+          if (record) openDpsModal('Record Details', [{ label: 'Summary', name: 'summary', type: 'textarea', required: false }], () => {});
+        });
+      }
+
+      function bindShiftControls() {
+        updateShiftBtn.addEventListener('click', () => {
+          if (!activeShiftState) return;
+          activeShiftState = {
+            ...activeShiftState,
+            onBreak: breakCheckbox.checked,
+            status: shiftStatusSelect.value,
+            location: shiftLocation.value.trim(),
+            vehicle: shiftVehicle.value.trim(),
+          };
+          renderShiftHistory(operationsData.shifts);
+          shiftMessageEl.textContent = 'Shift details updated for this session.';
+          shiftMessageEl.className = 'staff-message success';
+        });
+      }
+
+      function bindTabs() {
+        document.querySelectorAll('.tabs').forEach((tabList) => {
+          const panels = tabList.parentElement.querySelectorAll(':scope > .tab-panel');
+          tabList.querySelectorAll('[data-tab]').forEach((button) => {
+            button.addEventListener('click', () => {
+              tabList.querySelectorAll('[data-tab]').forEach((candidate) => {
+                const active = candidate === button;
+                candidate.classList.toggle('active', active);
+                candidate.setAttribute('aria-selected', active ? 'true' : 'false');
+              });
+              panels.forEach((panel) => panel.classList.toggle('active', panel.id === button.dataset.tab));
+            });
+          });
+        });
+      }
+
       actionTypeSelect.addEventListener('change', () => {
-        const type = actionTypeSelect.value;
-        const warnFields = warnSeverityRow;
-        warnFields.style.display = (type === 'warn') ? 'flex' : 'none';
+        warnSeverityRow.style.display = actionTypeSelect.value === 'warn' ? 'flex' : 'none';
       });
+      bindTabs();
+      bindActionForm();
+      bindInfractionForm();
+      bindOperationsFilters();
+      bindDpsFilters();
+      bindDpsButtons();
+      bindTableActions();
+      bindShiftControls();
 
       startShiftBtn.addEventListener('click', async () => {
         try {
@@ -909,7 +2033,10 @@
         event.preventDefault();
         try {
           await submitOperationsForm(actionForm, '/api/staff/actions');
+          shiftMessageEl.textContent = 'Moderation action logged.';
+          shiftMessageEl.className = 'staff-message success';
           actionTypeSelect.dispatchEvent(new Event('change'));
+          await loadOperations();
         } catch (error) {
           document.getElementById('actionPermission').textContent = error.message;
         }
@@ -919,16 +2046,13 @@
         event.preventDefault();
         try {
           const data = await submitOperationsForm(infractionForm, '/api/staff/infractions');
-          const msg = data.dmSent
-            ? 'Infraction created and user DM sent.'
-            : `Infraction created. ${data.dmError || 'User could not be DM\'d.'}`;
+          const msg = data.dmSent ? 'Infraction created and user DM sent.' : `Infraction created. ${data.dmError || "User could not be DM'd."}`;
           document.getElementById('infractionPermission').textContent = msg;
+          await loadOperations();
         } catch (error) {
           document.getElementById('infractionPermission').textContent = error.message;
         }
       });
-
-      actionTypeSelect.dispatchEvent(new Event('change'));
 
       refreshServerBtn.addEventListener('click', refreshErlcServer);
 
@@ -943,11 +2067,7 @@
         erlcCommandMessage.textContent = 'Sending command…';
         erlcCommandMessage.className = 'staff-message';
         try {
-          const res = await fetch('/api/erlc/command', {
-            method: 'POST', credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ command }),
-          });
+          const res = await fetch('/api/erlc/command', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ command }) });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || data.message || 'Command failed');
           erlcCommandMessage.textContent = `Sent: ${command}`;
@@ -968,7 +2088,6 @@
           if (isMgmt) refreshErlcServer().catch(() => {});
         }, 30000);
       }
-
       function showSignedOut(message) {
         staffPortal.classList.add('hidden');
         staffAccessBtn.classList.remove('hidden');
@@ -1169,18 +2288,3 @@
     </script>
   </body>
 </html>
-<% if (isManagement) { %>
-<section>
-  <h3>Management Infractions</h3>
-
-  <% if (infractions.length === 0) { %>
-    <p>No management infractions logged.</p>
-  <% } else { %>
-    <ul>
-      <% infractions.forEach(i => { %>
-        <li><%= i.reason %></li>
-      <% }) %>
-    </ul>
-  <% } %>
-</section>
-<% } %>

@@ -6,7 +6,7 @@
   <title>ERLCARMY | Departments&trade;</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -23,24 +23,62 @@
           <a class="nav-cta" href="/staff">Staff Portal</a>
         </nav>
       </div>
+      <div class="scroll-progress" aria-hidden="true"><span id="scrollProgressBar"></span></div>
     </header>
   <main class="container">
       <section class="hero">
         <p class="eyebrow">2026 Operational Handbook</p>
         <h1>Discipline. Order. Fairness.</h1>
         <p>Department standards for ERLCARMY personnel, built around clear authority and accountable operations.</p>
+        <div class="hero-actions">
+          <a href="#cmt" class="btn btn-primary">Explore Departments</a>
+          <a href="#sf" class="btn btn-secondary">Read Standards</a>
+        </div>
+        <div class="hero-stats">
+          <div class="hero-stat"><strong data-count="3">0</strong><span>Departments</span></div>
+          <div class="hero-stat"><strong data-count="14">0</strong><span>CMT SOP Sections</span></div>
+          <div class="hero-stat"><strong data-count="28">0</strong><span>DOT SOP Sections</span></div>
+        </div>
       </section>
+
+      <div class="department-jump">
+        <button class="jump-btn active" data-target="cmt">CMT</button>
+        <button class="jump-btn" data-target="dot">DOT</button>
+        <button class="jump-btn" data-target="sf">Special Forces</button>
+      </div>
+
+      <div class="search-box hero-search">
+        <input type="text" id="sopSearch" placeholder="Search SOPs, procedures, commands, and guidelines..." aria-label="Search handbook content">
+        <button type="button" id="clearSopSearch" class="btn btn-sm btn-secondary">Clear</button>
+      </div>
+      <p id="sopSearchStatus" class="search-status" role="status" aria-live="polite"></p>
       <section id="cmt" class="section">
         <div class="section-heading"><p class="eyebrow">01 / Combat Operations</p><h2>Combat Medical Team</h2></div>
         <div class="cards"><article><h3>Medical integrity</h3><p>Remain mission-focused, follow authorized deployments, and provide aid within the assigned command structure.</p></article><article><h3>Chain of command</h3><p>Respect rank authority, follow lawful orders, and report unauthorized command claims.</p></article><article><h3>Deployment discipline</h3><p>Maintain station coverage and coordinate all movement through CMT leadership.</p></article></div>
 
-        <div class="sop-container">
-          <details class="sop-accordion">
-            <summary class="sop-summary">
-              <span class="sop-summary-text">Combat Medical Team Standard Operating Procedure</span>
-              <span class="sop-toggle">▼</span>
-            </summary>
-            <div class="sop-content">
+        <div class="tabs" role="tablist" aria-label="CMT Handbook Sections">
+          <button class="tab-btn active" role="tab" aria-selected="true" data-tab="cmt-overview">Overview</button>
+          <button class="tab-btn" role="tab" aria-selected="false" data-tab="cmt-sop">Full SOP</button>
+          <button class="tab-btn" role="tab" aria-selected="false" data-tab="cmt-quickref">Quick Reference</button>
+          <button class="tab-btn" role="tab" aria-selected="false" data-tab="cmt-ethics">Conduct & Ethics</button>
+        </div>
+
+        <div class="tab-panel active" id="cmt-overview" role="tabpanel">
+          <div class="overview-grid">
+            <article class="overview-card"><h3>Medical integrity</h3><p>Remain mission-focused, follow authorized deployments, and provide aid within the assigned command structure.</p></article>
+            <article class="overview-card"><h3>Chain of command</h3><p>Respect rank authority, follow lawful orders, and report unauthorized command claims.</p></article>
+            <article class="overview-card"><h3>Deployment discipline</h3><p>Maintain station coverage and coordinate all movement through CMT leadership.</p></article>
+            <article class="overview-card"><h3>Patient care</h3><p>Provide realistic, ethical, and professional medical roleplay for every patient encounter.</p></article>
+            <article class="overview-card"><h3>Documentation</h3><p>Log every patient encounter with accurate times, vitals, interventions, and handoff details.</p></article>
+            <article class="overview-card"><h3>Scene safety</h3><p>Never enter an unsafe scene. Coordinate with law enforcement before patient extraction.</p></article>
+          </div>
+          <div class="overview-callout">
+            <p class="eyebrow">CMT Mission</p>
+            <p>Provide organized medical roleplay support during ERLC operations with standardized triage, stabilization, evacuation, and documentation procedures.</p>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="cmt-sop" role="tabpanel">
 
               <section class="sop-section">
                 <h3>1. Purpose & Mission</h3>
@@ -294,20 +332,128 @@
               </section>
 
             </div>
-          </details>
+
+        </div>
+
+        <div class="tab-panel" id="cmt-quickref" role="tabpanel">
+          <div class="quickref-grid">
+            <article class="quickref-card">
+              <h3>Vital Signs Norms (Adult)</h3>
+              <table class="sop-table">
+                <thead><tr><th>Parameter</th><th>Normal</th><th>Concerning</th><th>Critical</th></tr></thead>
+                <tbody>
+                  <tr><td>HR</td><td>60-100</td><td>&gt;120 or &lt;50</td><td>&gt;140 or &lt;40</td></tr>
+                  <tr><td>BP (SBP)</td><td>90-140</td><td>&lt;90 or &gt;180</td><td>&lt;70 or &gt;200</td></tr>
+                  <tr><td>RR</td><td>12-20</td><td>&gt;28 or &lt;10</td><td>&gt;35 or &lt;8</td></tr>
+                  <tr><td>SpO2</td><td>&gt;94%</td><td>90-93%</td><td>&lt;90%</td></tr>
+                  <tr><td>GCS</td><td>15</td><td>13-14</td><td>&lt;13</td></tr>
+                  <tr><td>Temp</td><td>36.5-37.5°C</td><td>&gt;38.5 or &lt;35</td><td>&gt;40 or &lt;32</td></tr>
+                </tbody>
+              </table>
+            </article>
+            <article class="quickref-card">
+              <h3>Rule of 9s (TBSA)</h3>
+              <ul>
+                <li>Head/Neck: 9%</li>
+                <li>Each Arm: 9%</li>
+                <li>Each Leg: 18%</li>
+                <li>Anterior Trunk: 18%</li>
+                <li>Posterior Trunk: 18%</li>
+                <li>Perineum: 1%</li>
+              </ul>
+              <h3>GCS Quick Reference</h3>
+              <ul>
+                <li>Eyes: 4 (Spont) / 3 (Voice) / 2 (Pain) / 1 (None)</li>
+                <li>Verbal: 5 (Oriented) / 4 (Confused) / 3 (Words) / 2 (Sounds) / 1 (None)</li>
+                <li>Motor: 6 (Obeys) / 5 (Localizes) / 4 (Withdraws) / 3 (Flexion) / 2 (Extension) / 1 (None)</li>
+              </ul>
+            </article>
+            <article class="quickref-card">
+              <h3>Triage Categories</h3>
+              <ul>
+                <li><strong>Immediate (Red):</strong> Life-threatening, salvageable with immediate care</li>
+                <li><strong>Delayed (Yellow):</strong> Serious but stable, can wait 30-60 min</li>
+                <li><strong>Minimal (Green):</strong> Minor injuries, walking wounded</li>
+                <li><strong>Expectant (Black):</strong> Deceased or unsurvivable given resources</li>
+              </ul>
+              <h3>MIST Handoff</h3>
+              <ul>
+                <li><strong>M</strong> — Mechanism / Medical complaint</li>
+                <li><strong>I</strong> — Injuries found</li>
+                <li><strong>S</strong> — Signs / Vitals</li>
+                <li><strong>T</strong> — Treatment given</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="cmt-ethics" role="tabpanel">
+          <div class="ethics-grid">
+            <article class="ethics-card">
+              <h3>Core Ethics</h3>
+              <ul>
+                <li>Provide care without discrimination (race, faction, affiliation, criminal status).</li>
+                <li>Maintain patient confidentiality (HIPAA principles in roleplay).</li>
+                <li>Refuse orders that violate medical ethics or endanger patients.</li>
+                <li>Not abandon patients — handoff to equal/higher care required.</li>
+                <li>Document honestly — no falsification of vitals, interventions, or narratives.</li>
+                <li>Remain in character; use realistic medical terminology and procedures.</li>
+              </ul>
+            </article>
+            <article class="ethics-card">
+              <h3>Prohibited Conduct</h3>
+              <ul>
+                <li>Practicing beyond scope</li>
+                <li>Unauthorized pronouncement of death</li>
+                <li>Stealing calls or freelancing</li>
+                <li>Arguing on scene</li>
+                <li>Social media posts of patient encounters</li>
+                <li>Entering hot zones without clearance</li>
+              </ul>
+            </article>
+            <article class="ethics-card">
+              <h3>Discipline System</h3>
+              <table class="sop-table">
+                <thead><tr><th>Level</th><th>Action</th><th>Examples</th></tr></thead>
+                <tbody>
+                  <tr><td>1</td><td>Verbal Counseling</td><td>Minor documentation error, uniform issue, radio etiquette</td></tr>
+                  <tr><td>2</td><td>Written Warning</td><td>Repeated Level 1, missed radio check, late to staging</td></tr>
+                  <tr><td>3</td><td>Shift Suspension</td><td>Protocol deviation, unsafe practice, insubordination</td></tr>
+                  <tr><td>4</td><td>Rank Suspension</td><td>Patient abandonment, falsification, ethics violation</td></tr>
+                  <tr><td>5</td><td>Removal from CMT</td><td>Gross negligence, intentional harm, repeated Level 4</td></tr>
+                </tbody>
+              </table>
+            </article>
+          </div>
         </div>
       </section>
       <section id="dot" class="section alt">
         <div class="section-heading"><p class="eyebrow">02 / Transportation Command</p><h2>Department of Transport</h2></div>
         <div class="cards"><article><h3>Vehicle safety</h3><p>Operate assigned vehicles responsibly and report collisions, damage, or misuse.</p></article><article><h3>Authorized routes</h3><p>Use transport assets only for approved tactical and logistics objectives.</p></article><article><h3>Asset discipline</h3><p>Never weaponize, abandon, steal, or use department vehicles for personal activity.</p></article></div>
 
-        <div class="sop-container">
-          <details class="sop-accordion">
-            <summary class="sop-summary">
-              <span class="sop-summary-text">Convoy Standard Operating Procedure</span>
-              <span class="sop-toggle">▼</span>
-            </summary>
-            <div class="sop-content">
+        <div class="tabs" role="tablist" aria-label="DOT Handbook Sections">
+          <button class="tab-btn active" role="tab" aria-selected="true" data-tab="dot-overview">Overview</button>
+          <button class="tab-btn" role="tab" aria-selected="false" data-tab="dot-sop">Full SOP</button>
+          <button class="tab-btn" role="tab" aria-selected="false" data-tab="dot-commands">Commands & Signals</button>
+          <button class="tab-btn" role="tab" aria-selected="false" data-tab="dot-safety">Safety & Conduct</button>
+        </div>
+
+        <div class="tab-panel active" id="dot-overview" role="tabpanel">
+          <div class="overview-grid">
+            <article class="overview-card"><h3>Vehicle safety</h3><p>Operate assigned vehicles responsibly and report collisions, damage, or misuse.</p></article>
+            <article class="overview-card"><h3>Authorized routes</h3><p>Use transport assets only for approved tactical and logistics objectives.</p></article>
+            <article class="overview-card"><h3>Asset discipline</h3><p>Never weaponize, abandon, steal, or use department vehicles for personal activity.</p></article>
+            <article class="overview-card"><h3>Formation integrity</h3><p>Maintain assigned positions, safe spacing, and convoy discipline throughout movement.</p></article>
+            <article class="overview-card"><h3>Radio discipline</h3><p>Keep radio traffic brief, relevant, and professional at all times.</p></article>
+            <article class="overview-card"><h3>Emergency response</h3><p>Follow established procedures for collisions, breakdowns, separation, and hostile interference.</p></article>
+          </div>
+          <div class="overview-callout">
+            <p class="eyebrow">DOT Mission</p>
+            <p>Move DOT personnel and equipment safely while maintaining a professional, organized formation that minimizes disruption to civilian traffic and roleplay.</p>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="dot-sop" role="tabpanel">
 
               <section class="sop-section">
                 <h3>1. Purpose</h3>
@@ -488,7 +634,7 @@
               </section>
 
               <section class="sop-section">
-                <h3>11. Intersection Procedure</h4>
+                <h3>11. Intersection Procedure</h3>
                 <h4>Without a police escort</h4>
                 <p>Obey all traffic signals. Do not enter unless there is enough space to clear the intersection. If the convoy is split by a red light, the front group continues at reduced speed or stops safely. DOT Lead must not stop in the middle of the road solely to keep the convoy together.</p>
                 <h4>With a police escort</h4>
@@ -674,17 +820,147 @@
               </section>
 
             </div>
-          </details>
+
         </div>
 
-        <div class="sop-container">
-          <details class="sop-accordion">
-            <summary class="sop-summary">
-              <span class="sop-summary-text">Combat Medical Team:ERLC ARMY ROLEPLAY</span>
-              <span class="sop-toggle">▼</span>
-            </summary>
-            <div class="sop-content">
+        <div class="tab-panel" id="dot-commands" role="tabpanel">
+          <div class="quickref-grid">
+            <article class="quickref-card">
+              <h3>Standard Commands</h3>
+              <table class="sop-table">
+                <thead><tr><th>Command</th><th>Meaning</th></tr></thead>
+                <tbody>
+                  <tr><td>Stage</td><td>Report to the designated formation area</td></tr>
+                  <tr><td>Mount up</td><td>Enter assigned vehicles and prepare to move</td></tr>
+                  <tr><td>Stand by</td><td>Hold position and await instructions</td></tr>
+                  <tr><td>Roll out</td><td>Begin moving in assigned order</td></tr>
+                  <tr><td>Tighten formation</td><td>Safely reduce excessive gaps</td></tr>
+                  <tr><td>Extend formation</td><td>Increase following distance</td></tr>
+                  <tr><td>Reduce speed</td><td>Gradually slow down</td></tr>
+                  <tr><td>Convoy halt</td><td>Stop at the next safe location</td></tr>
+                  <tr><td>Freeze movement</td><td>Stop immediately due to an imminent hazard</td></tr>
+                  <tr><td>Resume movement</td><td>Continue under the previous formation</td></tr>
+                  <tr><td>Break formation</td><td>Convoy rules are ending at the destination</td></tr>
+                  <tr><td>Code yellow</td><td>Increased caution; possible hazard</td></tr>
+                  <tr><td>Code red</td><td>Immediate danger; follow emergency instructions</td></tr>
+                </tbody>
+              </table>
+            </article>
+            <article class="quickref-card">
+              <h3>Radio Format</h3>
+              <p><strong>Standard format:</strong> "[Receiving unit], [your call sign], [message]."</p>
+              <h4>Priority Levels</h4>
+              <ul>
+                <li><strong>Routine</strong> — Normal movement and status updates</li>
+                <li><strong>Priority</strong> — Separation, blockage, or mechanical problem</li>
+                <li><strong>Emergency traffic</strong> — Collision, immediate danger, or active threat</li>
+              </ul>
+              <h4>Prohibited Radio Behavior</h4>
+              <ul>
+                <li>Talking over command</li>
+                <li>Music, soundboards, or unrelated conversations</li>
+                <li>Shouting without an emergency</li>
+                <li>Fake emergency calls</li>
+                <li>Insults, arguments, or threats</li>
+                <li>Impersonating another unit or rank</li>
+              </ul>
+            </article>
+            <article class="quickref-card">
+              <h3>Speed & Spacing</h3>
+              <table class="sop-table">
+                <thead><tr><th>Road type</th><th>Recommended maximum</th></tr></thead>
+                <tbody>
+                  <tr><td>Parking lot or staging area</td><td>10 mph</td></tr>
+                  <tr><td>Dense city streets</td><td>25 mph</td></tr>
+                  <tr><td>Open city roads</td><td>35 mph</td></tr>
+                  <tr><td>County roads</td><td>40 mph</td></tr>
+                  <tr><td>Highway</td><td>50 mph</td></tr>
+                  <tr><td>Hazard or work zone</td><td>10-20 mph</td></tr>
+                </tbody>
+              </table>
+              <h4>Following Distance</h4>
+              <ul>
+                <li>Two vehicle lengths at low speeds</li>
+                <li>Three to four vehicle lengths at normal road speeds</li>
+                <li>Increase spacing behind heavy trucks or during poor visibility</li>
+                <li>Create space if a civilian enters the formation</li>
+              </ul>
+            </article>
+          </div>
+        </div>
 
+        <div class="tab-panel" id="dot-safety" role="tabpanel">
+          <div class="ethics-grid">
+            <article class="ethics-card">
+              <h3>Conduct Rules</h3>
+              <ul>
+                <li>Follow Roblox and server rules</li>
+                <li>Treat other players respectfully</li>
+                <li>Remain in character during active roleplay</li>
+                <li>Use realistic vehicle handling</li>
+                <li>Follow the chain of command</li>
+                <li>Correct mistakes without arguments</li>
+                <li>Protect civilian and emergency access</li>
+                <li>Keep department information professional</li>
+              </ul>
+            </article>
+            <article class="ethics-card">
+              <h3>Prohibited Conduct</h3>
+              <ul>
+                <li>Reckless driving, drifting, racing</li>
+                <li>Ramming or vehicle boxing</li>
+                <li>Rank impersonation</li>
+                <li>Unauthorized siren use</li>
+                <li>Ignoring commands</li>
+                <li>Intentional disruption</li>
+                <li>Abusing disciplinary powers</li>
+                <li>Harassment or discriminatory behavior</li>
+                <li>Leaving without reporting</li>
+                <li>Using DOT authority as police</li>
+                <li>Exploiting or glitching</li>
+                <li>Evading server moderation</li>
+              </ul>
+            </article>
+            <article class="ethics-card">
+              <h3>Emergency Procedures</h3>
+              <ul>
+                <li><strong>Collision:</strong> Stop safely, activate warning lights, announce incident, move clear when possible, request assistance</li>
+                <li><strong>Breakdown:</strong> Move to shoulder, activate hazards, remain clear of traffic, await recovery</li>
+                <li><strong>Separation:</strong> Continue safely, notify Section Leader or Rear Guard, provide location and status</li>
+                <li><strong>Emergency vehicles:</strong> Yield immediately, move to the appropriate side, do not reenter until passed</li>
+                <li><strong>Hostile players:</strong> Do not retaliate, record identifying information, notify law enforcement or server staff</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="army" class="section alt">
+        <div class="section-heading"><p class="eyebrow">03 / Military Operations</p><h2>ERLC Army Roleplay</h2></div>
+        <div class="cards"><article><h3>Mission first</h3><p>Stay focused on the assigned objective, follow lawful orders, and keep every operation professional.</p></article><article><h3>Chain of command</h3><p>Respect the military hierarchy, communicate clearly, and escalate issues through the proper channel.</p></article><article><h3>Operational discipline</h3><p>Maintain formation, use realistic roleplay, and coordinate with allied departments when authorized.</p></article></div>
+
+        <div class="tabs" role="tablist" aria-label="Army Handbook Sections">
+          <button class="tab-btn active" role="tab" aria-selected="true" data-tab="army-overview">Overview</button>
+          <button class="tab-btn" role="tab" aria-selected="false" data-tab="army-sop">Full SOP</button>
+          <button class="tab-btn" role="tab" aria-selected="false" data-tab="army-quickref">Quick Reference</button>
+        </div>
+
+        <div class="tab-panel active" id="army-overview" role="tabpanel">
+          <div class="overview-grid">
+            <article class="overview-card"><h3>Mission first</h3><p>Stay focused on the assigned objective, follow lawful orders, and keep every operation professional.</p></article>
+            <article class="overview-card"><h3>Chain of command</h3><p>Respect the military hierarchy, communicate clearly, and escalate issues through the proper channel.</p></article>
+            <article class="overview-card"><h3>Operational discipline</h3><p>Maintain formation, use realistic roleplay, and coordinate with allied departments when authorized.</p></article>
+            <article class="overview-card"><h3>Deployment readiness</h3><p>Report to staging, confirm your assignment, and maintain accountability throughout the operation.</p></article>
+            <article class="overview-card"><h3>Scene safety</h3><p>Assess hazards before movement, protect civilians, and never bypass the chain of command.</p></article>
+            <article class="overview-card"><h3>Professional conduct</h3><p>Represent the organization with discipline, integrity, and respect for every department.</p></article>
+          </div>
+          <div class="overview-callout">
+            <p class="eyebrow">Army Mission</p>
+            <p>Provide organized military roleplay during authorized emergencies, deployments, security operations, disaster response, convoys, training exercises, and interdepartmental missions.</p>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="army-sop" role="tabpanel">
               <section class="sop-section">
                 <h3>1. Mission & Purpose</h3>
                 <p>The ERLC Army Roleplay exists to provide organized military roleplay during large-scale emergencies, deployments, security operations, disaster response, convoys, training exercises, and other authorized roleplay scenarios.</p>
@@ -1236,9 +1512,49 @@
               </section>
 
             </div>
-          </details>
+
         </div>
 
+        <div class="tab-panel" id="army-quickref" role="tabpanel">
+          <div class="quickref-grid">
+            <article class="quickref-card">
+              <h3>Chain of Command</h3>
+              <p>Army Commander → Deputy Army Commander → Chief of Staff → Command Staff → Battalion Commanders → Company Commanders → Platoon Leaders → Squad Leaders → Senior Soldiers → Soldiers → Recruit / Training Personnel</p>
+              <p class="sop-note"><strong>Rule:</strong> Contact the lowest appropriate level before escalating, except during emergencies or misconduct by the next person in command.</p>
+            </article>
+            <article class="quickref-card">
+              <h3>Deployment Phases</h3>
+              <ol>
+                <li>Activation</li>
+                <li>Mobilization</li>
+                <li>Briefing</li>
+                <li>Formation</li>
+                <li>Movement</li>
+                <li>Staging</li>
+                <li>Mission</li>
+                <li>Accountability</li>
+                <li>Withdrawal</li>
+                <li>Debrief</li>
+              </ol>
+            </article>
+            <article class="quickref-card">
+              <h3>Golden Rules</h3>
+              <ol>
+                <li>Mission First.</li>
+                <li>Safety Before Action.</li>
+                <li>Follow the Chain of Command.</li>
+                <li>Communicate Clearly.</li>
+                <li>Stay in Your Role.</li>
+                <li>Respect Other Departments.</li>
+                <li>Do Not Abuse Your Rank.</li>
+                <li>Keep Military RP Realistic for ERLC.</li>
+                <li>Do Not Leave Your Team Behind.</li>
+                <li>Represent ERLC Army Roleplay Professionally.</li>
+              </ol>
+            </article>
+          </div>
+        </div>
+      </section>
 
       <section id="sf" class="section">
         <div class="section-heading"><p class="eyebrow">03 / Elite Operations</p><h2>Special Forces</h2></div>
@@ -1274,6 +1590,126 @@
         </div>
       </section>
   </main>
-    <footer><div class="container">2026 ERLCARMY Departments&trade;</div></footer>
+    <footer class="legal-footer">
+      <div class="container">
+        <div class="legal-footer-grid">
+          <div>
+            <p><strong>© 2026 ERLCARMY Departments&trade;</strong> All rights reserved.</p>
+            <p>ERLCARMY, the ERLCARMY name, department marks, insignia, and related branding are trademarks of ERLCARMY Departments. Use of these marks without written permission is prohibited.</p>
+          </div>
+          <div>
+            <p><strong>Community Use Notice:</strong> This handbook is an internal roleplay standards resource. It is not affiliated with, endorsed by, or sponsored by Roblox Corporation or the developers of Emergency Response: Liberty County.</p>
+            <p><a href="#cmt">Department Standards</a> · <a href="#sf">Rules of Engagement</a> · <a href="/staff">Staff Portal</a></p>
+          </div>
+        </div>
+      </div>
+    </footer>
+    <script>
+      const tabButtons = document.querySelectorAll('[data-tab]');
+      const tabPanels = document.querySelectorAll('.tab-panel');
+      const sopSearch = document.getElementById('sopSearch');
+      const clearSopSearch = document.getElementById('clearSopSearch');
+      const sopSearchStatus = document.getElementById('sopSearchStatus');
+      const scrollProgressBar = document.getElementById('scrollProgressBar');
+      const jumpButtons = document.querySelectorAll('.jump-btn');
+      const counters = document.querySelectorAll('[data-count]');
+
+      function activateTab(targetId) {
+        tabPanels.forEach((panel) => panel.classList.toggle('active', panel.id === targetId));
+        tabButtons.forEach((button) => {
+          const active = button.dataset.tab === targetId;
+          button.classList.toggle('active', active);
+          button.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+      }
+
+      tabButtons.forEach((button) => {
+        button.addEventListener('click', () => activateTab(button.dataset.tab));
+      });
+
+      function normalizeText(value) {
+        return (value || '').toLowerCase().trim();
+      }
+
+      function filterSopContent() {
+        const query = normalizeText(sopSearch.value);
+        const searchable = document.querySelectorAll('.sop-section, .quickref-card, .ethics-card, .sf-detail, .sf-roe');
+        let matches = 0;
+        searchable.forEach((item) => {
+          const visible = !query || normalizeText(item.textContent).includes(query);
+          item.style.display = visible ? '' : 'none';
+          if (visible) matches += 1;
+        });
+        if (!query) {
+          sopSearchStatus.textContent = '';
+          return;
+        }
+        sopSearchStatus.innerHTML = matches
+          ? `<strong>${matches}</strong> handbook ${matches === 1 ? 'section' : 'sections'} found for “${query}”.`
+          : 'No handbook sections match that search.';
+      }
+
+      sopSearch.addEventListener('input', filterSopContent);
+      clearSopSearch.addEventListener('click', () => {
+        sopSearch.value = '';
+        filterSopContent();
+        sopSearch.focus();
+      });
+
+      window.addEventListener('scroll', () => {
+        const scrollTop = window.scrollY;
+        const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+        const progress = docHeight > 0 ? Math.min(100, Math.max(0, (scrollTop / docHeight) * 100)) : 0;
+        scrollProgressBar.style.width = `${progress}%`;
+
+        const current = [...jumpButtons].reduce((active, button) => {
+          const target = document.getElementById(button.dataset.target);
+          return target && target.getBoundingClientRect().top <= 140 ? button : active;
+        }, jumpButtons[0]);
+        jumpButtons.forEach((button) => button.classList.toggle('active', button === current));
+      }, { passive: true });
+
+      jumpButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          document.getElementById(button.dataset.target)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      });
+
+      const revealObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            revealObserver.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.12 });
+      document.querySelectorAll('.section, .hero, .overview-card, .quickref-card, .ethics-card, .sf-detail, .sf-roe').forEach((element) => {
+        element.classList.add('reveal');
+        revealObserver.observe(element);
+      });
+
+      const counterObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const target = Number(entry.target.dataset.count);
+          const started = performance.now();
+          const duration = 900;
+          const tick = (now) => {
+            const progress = Math.min(1, (now - started) / duration);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            entry.target.textContent = String(Math.round(target * eased));
+            if (progress < 1) requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+          counterObserver.unobserve(entry.target);
+        });
+      }, { threshold: 0.6 });
+      counters.forEach((counter) => counterObserver.observe(counter));
+
+      window.addEventListener('DOMContentLoaded', () => {
+        filterSopContent();
+        window.dispatchEvent(new Event('scroll'));
+      });
+    </script>
 </body>
 </html>
