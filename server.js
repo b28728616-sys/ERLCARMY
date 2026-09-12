@@ -1220,18 +1220,29 @@ function createApp() {
   });
 
   app.get('/api/session', (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.json({ authenticated: false });
+    try {
+      if (!req.isAuthenticated()) {
+        return res.json({ authenticated: false });
+      }
+      return res.json({ authenticated: true, user: req.user });
+    } catch (error) {
+      console.error('Session check error:', error.message);
+      return res.status(500).json({ error: 'Session check failed', authenticated: false });
     }
-
-    return res.json({
-      authenticated: true,
-      user: req.user,
-    });
   });
 
   app.get('/health', (req, res) => {
     res.json({ status: 'ok' });
+  });
+
+  app.get('/api/oauth-status', (req, res) => {
+    res.json({
+      configured: isDiscordConfigured,
+      baseUrl: baseUrl,
+      redirectUri: discordRedirectUri,
+      strategyLoaded: !!discordStrategy,
+      sessionSecretSet: Boolean(process.env.SESSION_SECRET && process.env.SESSION_SECRET !== 'replace-with-a-long-random-secret'),
+    });
   });
 
   app.get('/api/staff/operations', requireStaffApi, (req, res) => {
@@ -1525,6 +1536,15 @@ function createApp() {
 
   app.use((req, res) => {
     res.status(404).send('ERLCARMY route not found.');
+  });
+
+  app.use((err, req, res, next) => {
+    console.error('Unhandled error:', err?.message || err);
+    if (res.headersSent) { return; }
+    if (req.path?.startsWith('/api/')) {
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    res.status(500).send('Internal server error');
   });
 
   return app;

@@ -2250,35 +2250,48 @@
               ? 'Discord took too long to respond. Please try signing in again.'
               : null;
 
-        try {
-          const res = await fetch('/api/session', { credentials: 'same-origin' });
-          if (!res.ok) throw new Error('Network response not ok');
-          const data = await res.json();
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const res = await fetch('/api/session', { credentials: 'same-origin' });
+            if (!res.ok) throw new Error('Network response not ok');
+            const data = await res.json();
 
-          if (data.authenticated && data.user && data.user.isStaff) {
-            staffPortal.classList.remove('hidden');
-            staffAccessBtn.classList.add('hidden');
-            staffLogoutBtn.classList.remove('hidden');
-            staffMessage.textContent = 'Discord staff verification confirmed.';
-            staffMessage.classList.add('success');
+            if (data.error) {
+              showSignedOut(data.error === 'Session check failed'
+                ? 'Verification service is temporarily unavailable. Please try again shortly.'
+                : 'Verification service is unavailable. Please try again shortly.');
+              return;
+            }
 
-            const roleKey = data.user.staffRoleSlug || 'moderator';
-            const roleLabel = data.user.staffRoleSlug
-              ? `Verified role: ${data.user.staffRoleSlug}`
-              : 'Verified staff member';
-            const accessSummary = rankAccessMap[roleKey] || 'Staff-level access granted by the command hierarchy.';
-            staffIdentity.textContent = `${data.user.username || 'Staff member'} · ${roleLabel} · ${accessSummary}`;
-            renderRoleDashboard(roleKey);
-            await loadOperations();
-            startAutoRefresh();
-            window.location.hash = '#command';
+            if (data.authenticated && data.user && data.user.isStaff) {
+              staffPortal.classList.remove('hidden');
+              staffAccessBtn.classList.add('hidden');
+              staffLogoutBtn.classList.remove('hidden');
+              staffMessage.textContent = 'Discord staff verification confirmed.';
+              staffMessage.classList.add('success');
+
+              const roleKey = data.user.staffRoleSlug || 'moderator';
+              const roleLabel = data.user.staffRoleSlug
+                ? `Verified role: ${data.user.staffRoleSlug}`
+                : 'Verified staff member';
+              const accessSummary = rankAccessMap[roleKey] || 'Staff-level access granted by the command hierarchy.';
+              staffIdentity.textContent = `${data.user.username || 'Staff member'} · ${roleLabel} · ${accessSummary}`;
+              renderRoleDashboard(roleKey);
+              await loadOperations();
+              startAutoRefresh();
+              window.location.hash = '#command';
+              return;
+            }
+
+            showSignedOut(authFailureMessage || 'Discord verification is required to access the staff command portal.');
             return;
+          } catch (err) {
+            if (attempt === 2) {
+              console.error('Session check failed', err);
+              showSignedOut('Verification service is temporarily unavailable. Please try again shortly. If this persists, check your server configuration or try again after a few minutes.');
+            }
+            await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
           }
-
-          showSignedOut(authFailureMessage || 'Discord verification is required to access the staff command portal.');
-        } catch (err) {
-          console.error('Session check failed', err);
-          showSignedOut('Verification service is unavailable. Please try again shortly.');
         }
       }
 
