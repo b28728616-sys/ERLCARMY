@@ -2277,7 +2277,7 @@
               const accessSummary = rankAccessMap[roleKey] || 'Staff-level access granted by the command hierarchy.';
               staffIdentity.textContent = `${data.user.username || 'Staff member'} · ${roleLabel} · ${accessSummary}`;
               renderRoleDashboard(roleKey);
-              await loadOperations();
+              try { await loadOperations(); } catch (_) { /* operations data unavailable, portal still accessible */ }
               startAutoRefresh();
               window.location.hash = '#command';
               return;
