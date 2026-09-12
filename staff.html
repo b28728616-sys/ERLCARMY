@@ -70,7 +70,7 @@
           </div>
 
           <div id="staffPortal" class="staff-portal hidden">
-            <div class="staff-layout">          <button type="button" class="sidebar-toggle" id="staffSidebarToggle" aria-label="Open navigation" style="display:none">&#9776;</button>
+            <div class="staff-layout">          <button type="button" class="sidebar-toggle" id="staffSidebarToggle" aria-label="Open navigation">&#9776;</button>
           <div class="sidebar-overlay" id="staffSidebarOverlay"></div>
               <aside class="staff-sidebar">
                 <div class="sidebar-block">
@@ -2302,10 +2302,11 @@
       const staffSidebar = document.querySelector('.staff-sidebar');
       const staffOverlay = document.getElementById('staffSidebarOverlay');
       if (staffSidebarToggle && staffSidebar) {
-        staffSidebarToggle.style.display = 'flex';
+        staffSidebarToggle.setAttribute('aria-expanded', 'false');
         staffSidebarToggle.addEventListener('click', function() {
-          staffSidebar.classList.toggle('open');
-          if (staffOverlay) { staffOverlay.classList.toggle('active'); }
+          const isOpen = staffSidebar.classList.toggle('open');
+          staffSidebarToggle.setAttribute('aria-expanded', String(isOpen));
+          if (staffOverlay) { staffOverlay.classList.toggle('active', isOpen); }
         });
       }
       if (staffOverlay) {
