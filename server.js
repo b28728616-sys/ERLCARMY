@@ -39,18 +39,18 @@ function normalizeOAuthRedirectUri(value) {
 function getOAuthRedirectUri(req) {
   const configured = normalizeOAuthRedirectUri(process.env.DISCORD_REDIRECT_URI);
   if (configured) return configured;
-  if (!req) return `${baseUrl}/auth/discord/callback`;
+  if (!req) return `${baseUrl}/auth/discord/client-callback`;
 
   const protocol = String(req.get('x-forwarded-proto') || req.protocol || 'http').split(',')[0].trim();
   const host = String(req.get('x-forwarded-host') || req.get('host') || '').split(',')[0].trim();
   if (!host || !['http:', 'https:'].includes(protocol)) {
-    return `${baseUrl}/auth/discord/callback`;
+    return `${baseUrl}/auth/discord/client-callback`;
   }
 
   try {
-    return new URL('/auth/discord/callback', `${protocol}://${host}`).toString().replace(/\/+$/, '');
+    return new URL('/auth/discord/client-callback', `${protocol}://${host}`).toString().replace(/\/+$/, '');
   } catch (error) {
-    return `${baseUrl}/auth/discord/callback`;
+    return `${baseUrl}/auth/discord/client-callback`;
   }
 }
 
@@ -1038,7 +1038,7 @@ function createApp() {
     authorizationUrl.search = new URLSearchParams({
       client_id: process.env.DISCORD_CLIENT_ID,
       redirect_uri: callbackUrl,
-      response_type: 'code',
+      response_type: 'token',
       scope: 'identify guilds.members.read',
       state,
     }).toString();

@@ -12,12 +12,12 @@ ERLCARMY is an Express website with a Discord-authenticated staff portal.
 For Discord staff login, register this callback URL in the Discord Developer Portal:
 
 ```text
-http://localhost:3000/auth/discord/callback
+http://localhost:3000/auth/discord/client-callback
 ```
 
 ## Deploy to Render
 
-Create a Render Blueprint from this repository. Render will read `render.yaml`; set the private environment variables there and register the matching `/auth/discord/callback` URL in Discord.
+Create a Render Blueprint from this repository. Render will read `render.yaml`; set the private environment variables there and register the matching `/auth/discord/client-callback` URL in Discord.
 
 Never commit `.env`, bot tokens, or client secrets.
 
