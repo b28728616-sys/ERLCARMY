@@ -70,7 +70,8 @@
           </div>
 
           <div id="staffPortal" class="staff-portal hidden">
-            <div class="staff-layout">
+            <div class="staff-layout">          <button type="button" class="sidebar-toggle" id="staffSidebarToggle" aria-label="Open navigation" style="display:none">&#9776;</button>
+          <div class="sidebar-overlay" id="staffSidebarOverlay"></div>
               <aside class="staff-sidebar">
                 <div class="sidebar-block">
                   <p class="sidebar-label">Command</p>
@@ -94,13 +95,10 @@
                 </div>
 
                 <div class="sidebar-block">
-                  <p class="sidebar-label">Professional Standards</p>
+                  <p class="sidebar-label">Special Forces</p>
                   <ul>
-                    <li><a href="#dpsSection">DPS Dashboard</a></li>
-                    <li><a href="#dps-investigations">Investigations</a></li>
-                    <li><a href="#dps-audits">Shift Audits</a></li>
-                    <li><a href="#dps-complaints">Complaints</a></li>
-                    <li><a href="#dps-policy">Policy & Compliance</a></li>
+                    <li><a href="#operations">Operations Desk</a></li>
+                    <li><a href="#erlcSection">ERLC Integration</a></li>
                   </ul>
                 </div>
 
@@ -1063,7 +1061,7 @@
                   </p>
                   <div class="staff-grid inward-grid">
                     <article class="staff-panel">
-                      < class="eyebrow">Tier 3<
+                      <p class="eyebrow">Tier 3</p>
                       <h4>ODA (Green Berets)</h4>
                       <p>
                         ODA teams specialize in unconventional warfare, partner-force support, training, advising, and complex missions requiring judgment and discretion.
@@ -2285,6 +2283,58 @@
       }
 
       window.addEventListener('DOMContentLoaded', checkSession);
-    </script>
+    
+      // Mobile sidebar toggle
+      const staffSidebarToggle = document.getElementById('staffSidebarToggle');
+      const staffSidebar = document.querySelector('.staff-sidebar');
+      const staffOverlay = document.getElementById('staffSidebarOverlay');
+      if (staffSidebarToggle && staffSidebar) {
+        staffSidebarToggle.style.display = 'flex';
+        staffSidebarToggle.addEventListener('click', function() {
+          staffSidebar.classList.toggle('open');
+          if (staffOverlay) { staffOverlay.classList.toggle('active'); }
+        });
+      }
+      if (staffOverlay) {
+        staffOverlay.addEventListener('click', function() {
+          if (staffSidebar) { staffSidebar.classList.remove('open'); }
+          staffOverlay.classList.remove('active');
+        });
+      }
+
+      // Toast notification system
+      function showToast(message, type) {
+        const container = document.createElement('div');
+        container.className = 'toast ' + (type || 'info');
+        container.setAttribute('role', 'alert');
+        container.innerHTML = '<span>' + message + '</span>';
+        document.body.appendChild(container);
+        setTimeout(function() { container.remove(); }, 4000);
+      }
+
+      // Active section highlighting in sidebar
+      function updateActiveSidebar() {
+        const sections = document.querySelectorAll('.content-panel[id], .manual-section[id]');
+        let current = '';
+        sections.forEach(function(section) {
+          const top = section.offsetTop - 150;
+          if (window.scrollY >= top) { current = section.getAttribute('id'); }
+        });
+        document.querySelectorAll('.staff-sidebar a').forEach(function(link) {
+          link.classList.remove('active');
+          if (link.getAttribute('href') === '#' + current) { link.classList.add('active'); }
+        });
+      }
+      window.addEventListener('scroll', updateActiveSidebar);
+      setTimeout(updateActiveSidebar, 500);
+
+      // Staff portal reveal on load
+      document.querySelectorAll('.staff-passcode-box, .dash-card, .content-panel').forEach(function(el) {
+        el.classList.add('reveal');
+      });
+      setTimeout(function() {
+        document.querySelectorAll('.reveal').forEach(function(el) { el.classList.add('visible'); });
+      }, 100);
+</script>
   </body>
 </html>

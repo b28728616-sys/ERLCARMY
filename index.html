@@ -25,7 +25,24 @@
       </div>
       <div class="scroll-progress" aria-hidden="true"><span id="scrollProgressBar"></span></div>
     </header>
-  <main class="container">
+  <main class="container index-content">
+    <aside class="site-sidebar" id="siteSidebar" aria-label="Department navigation">
+      <button type="button" class="sidebar-close" id="sidebarClose" aria-label="Close navigation">&times;</button>
+      <p class="sidebar-label">Departments</p>
+      <nav>
+        <a href="#cmt" class="active">Combat Medical Team</a>
+        <a href="#dot">DOT</a>
+        <a href="#sf">Special Forces</a>
+      </nav>
+      <p class="sidebar-label" style="margin-top:20px">Resources</p>
+      <nav>
+        <a href="/staff">Staff Portal</a>
+        <a href="#">Handbook</a>
+        <a href="#">Contact</a>
+      </nav>
+    </aside>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    <button type="button" class="sidebar-toggle" id="sidebarToggle" aria-label="Open navigation">&#9776;</button>
       <section class="hero">
         <p class="eyebrow">2026 Operational Handbook</p>
         <h1>Discipline. Order. Fairness.</h1>
@@ -1711,5 +1728,113 @@
         window.dispatchEvent(new Event('scroll'));
       });
     </script>
+
+  <script>
+    // Sidebar toggle
+    const sidebar = document.getElementById('siteSidebar');
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebarClose = document.getElementById('sidebarClose');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    function openSidebar() { sidebar.classList.add('open'); sidebarOverlay.classList.add('active'); }
+    function closeSidebar() { sidebar.classList.remove('open'); sidebarOverlay.classList.remove('active'); }
+    if (sidebarToggle) sidebarToggle.addEventListener('click', openSidebar);
+    if (sidebarClose) sidebarClose.addEventListener('click', closeSidebar);
+    if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
+    document.querySelectorAll('.site-sidebar a').forEach(function(a) {
+      a.addEventListener('click', closeSidebar);
+    });
+
+    // Active section highlighting
+    function updateActiveNav() {
+      const sections = document.querySelectorAll('section[id]');
+      let current = '';
+      sections.forEach(function(section) {
+        const top = section.offsetTop - 120;
+        if (window.scrollY >= top) { current = section.getAttribute('id'); }
+      });
+      document.querySelectorAll('.site-sidebar nav a').forEach(function(link) {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === '#' + current) { link.classList.add('active'); }
+      });
+    }
+    window.addEventListener('scroll', updateActiveNav);
+    updateActiveNav();
+
+    // Counter animation
+    function animateCounters() {
+      document.querySelectorAll('[data-count]').forEach(function(el) {
+        const target = parseInt(el.getAttribute('data-count'), 10);
+        let current = 0;
+        const duration = 1500;
+        const step = Math.max(1, Math.floor(target / (duration / 16)));
+        const interval = setInterval(function() {
+          current += step;
+          if (current >= target) { current = target; clearInterval(interval); }
+          el.textContent = current;
+        }, 16);
+      });
+    }
+    window.addEventListener('load', animateCounters);
+
+    // Reveal on scroll
+    function setupReveal() {
+      const observer = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (entry.isIntersecting) { entry.target.classList.add('visible'); }
+        });
+      }, { threshold: 0.1 });
+      document.querySelectorAll('.reveal').forEach(function(el) { observer.observe(el); });
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', setupReveal);
+    } else { setupReveal(); }
+
+    // Scroll progress
+    window.addEventListener('scroll', function() {
+      const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+      const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+      const scrolled = (winScroll / height) * 100;
+      const progressBar = document.getElementById('scrollProgressBar');
+      if (progressBar) { progressBar.style.width = scrolled + '%'; }
+    });
+
+    // SOP search
+    const sopSearch = document.getElementById('sopSearch');
+    const clearSopSearch = document.getElementById('clearSopSearch');
+    const sopSearchStatus = document.getElementById('sopSearchStatus');
+    if (sopSearch) {
+      sopSearch.addEventListener('input', function() {
+        const query = this.value.trim().toLowerCase();
+        if (!query) {
+          document.querySelectorAll('.tab-panel').forEach(function(panel) { panel.style.display = ''; });
+          if (sopSearchStatus) { sopSearchStatus.innerHTML = ''; }
+          return;
+        }
+        let matchCount = 0;
+        document.querySelectorAll('.tab-panel').forEach(function(panel) {
+          const text = panel.textContent.toLowerCase();
+          if (text.includes(query)) { panel.style.display = ''; matchCount++; }
+          else { panel.style.display = 'none'; }
+        });
+        if (sopSearchStatus) { sopSearchStatus.innerHTML = 'Found <strong>' + matchCount + '</strong> matching sections'; }
+      });
+    }
+    if (clearSopSearch) {
+      clearSopSearch.addEventListener('click', function() {
+        sopSearch.value = '';
+        sopSearch.dispatchEvent(new Event('input'));
+      });
+    }
+
+    // Jump buttons smooth scroll
+    document.querySelectorAll('.jump-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.jump-btn').forEach(function(b) { b.classList.remove('active'); });
+        this.classList.add('active');
+        const target = document.getElementById(this.getAttribute('data-target'));
+        if (target) { target.scrollIntoView({ behavior: 'smooth' }); }
+      });
+    });
+  </script>
 </body>
 </html>
